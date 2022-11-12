@@ -82,10 +82,10 @@ def process_face_landmark(landmark_3d, width, height):
 
 # For webcam input:
 drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
-cap = cv2.VideoCapture(701)
+cap = cv2.VideoCapture(700)
 
-cap.set(3, 1280)
-cap.set(4, 960)
+# cap.set(3, 1280)
+# cap.set(4, 960)
 
 iris_eye_pos_list = []
 attention = 0
