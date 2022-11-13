@@ -384,7 +384,8 @@ if __name__ == '__main__':
         appid=appid,
         token=token,
         format=audio_format,
-        show_utterances=True
+        show_utterances=True,
+        sample_rate=22050
     )
-    result = asyncio.run(asr_client.execute('../tmp.wav', True))
+    result = asyncio.run(asr_client.execute('../tts.wav', True))
     print(result)

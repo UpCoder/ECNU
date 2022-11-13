@@ -18,7 +18,7 @@ def read_wav_info(data: bytes = None) -> (int, int, int, int, int):
 
 def demo_wav_info():
     print(read_wav_info(
-        bytes(open('1.wav', 'rb').read())
+        bytes(open('../tts.wav', 'rb').read())
     ))
 
 

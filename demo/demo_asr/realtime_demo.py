@@ -29,11 +29,11 @@ while True:
     myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=1, dtype=np.int16)
     print(type(myrecording))
     sd.wait()
-    # wavfile.write(f'./{count}.wav', fs, myrecording)
-    wave_binrary = write_binary(fs, myrecording)
+    wavfile.write(f'./{count}.wav', fs, myrecording)
+    # wave_binrary = write_binary(fs, myrecording)
     count += 1
-    # result = asyncio.run(asr_client.execute(f'./{count-1}.wav', True))
-    result = asyncio.run(asr_client.execute(wave_binrary, False))
+    result = asyncio.run(asr_client.execute(f'./{count-1}.wav', True))
+    # result = asyncio.run(asr_client.execute(wave_binrary, False))
     print(result)
     if result['payload_msg']['message'] == 'Success':
         print(result['payload_msg']['result'][0]['text'])
