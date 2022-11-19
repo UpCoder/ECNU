@@ -1,7 +1,9 @@
+import base64
 import socket
 import time
 import cv2
 import datetime
+import json
 import numpy as np
 
 class SocketClient(object):
@@ -17,15 +19,20 @@ class SocketClient(object):
             print(str(e))
         return
 
-    def send_binary(self, binary_data):
-        self.socket_client.send('{}|{}'.format(len(binary_data), datetime.datetime.now()).encode())
-        reply = self.socket_client.recv(1024)
+    def _pack_data(self, image_data):
+        image_code = base64.b64encode(image_data).decode()
+        packed_data = {
+            "time": time.time(),
+            "type": "jpg",
+            "length": len(image_code),
+            "data": image_code
+        }
+        return json.dumps(packed_data)
 
-        if reply.decode() == "Received head successfully":
-            self.socket_client.send(binary_data)
-        reply = self.socket_client.recv(1024)
-        if reply.decode() == "Received image successfully":
-            print("Send succeeded.")
+    def send_binary(self, image_data):
+        send_data = self._pack_data(image_data)
+        self.socket_client.send(send_data.encode())
+        print("Send done.")
         return
 
     def send_image(self, image_path):
@@ -38,5 +45,4 @@ if __name__ == '__main__':
     client = SocketClient()
     client.connet()
     client.send_image("test.jpg")
-
 

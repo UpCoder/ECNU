@@ -1,6 +1,8 @@
+import json
 import socket
 import time
 import cv2
+import base64
 import numpy as np
 
 class SocketServer(object):
@@ -17,24 +19,15 @@ class SocketServer(object):
         connection, address = self.server.accept()
         print(connection, address)
 
-        head = connection.recv(1024)
-        print(head.decode())
-        length, send_time = head.decode().split('|')
-        length = int(length)
-        connection.send(b"Received head successfully")
+        received_data = connection.recv(1024*1024)
+        received_data = json.loads(received_data.decode())
 
-        start_time = time.time()
-        get_length = 0
-        result_received = b''
-        while get_length < length:
-            received_data = connection.recv(1024*10)
-            result_received += received_data
-            get_length = get_length + len(received_data)
-        print('应该接收{}, 实际接收{}'.format(length, len(result_received)))
-        connection.send(b"Received image successfully")
-        print('received image cost:', time.time()-start_time)
-
-        img = cv2.imdecode(np.frombuffer(result_received, dtype='uint8'), cv2.IMREAD_COLOR)
+        send_time = received_data["time"]
+        length = received_data["length"]
+        image_data = base64.b64decode(received_data["data"].encode())
+        print(send_time, length)
+        print(image_data)
+        img = cv2.imdecode(np.frombuffer(image_data, dtype='uint8'), cv2.IMREAD_COLOR)
         print(type(img), img.shape)
         cv2.imwrite('received.jpg', img)
         connection.close()
