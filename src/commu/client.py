@@ -41,6 +41,17 @@ class SocketClient(object):
         else:
             print("Send done.")
 
+    def send_asr_txt(self, asr_txt):
+        try:
+            self.socket_client.send(json.dumps({
+                'dialogue': asr_txt,
+                'data': ''
+            }).encode())
+        except Exception as e:
+            print(e)
+        else:
+            print('Send Done.')
+
     def send_image_from_path(self, image_path):
         img = cv2.imread(image_path)
         self.send_image(img)
