@@ -1,15 +1,28 @@
-import cython
-print(cython.__version__)
-import pyworld as pw
+import os
 from ttskit import sdk_api
+print('finish import')
 
-# wav = sdk_api.tts_sdk('文本', audio='24')
-# print(type(wav))
-with open('./tts.txt', 'r') as f:
-    lines = f.readlines()
-lines = ''.join(lines)
-wav = sdk_api.tts_sdk(lines, audio='24')
-with open('tts.wav', 'wb') as f:
-    f.write(wav)
-# with open('./test.wav', 'wb') as f:
-#    f.write(wav)
+
+def demo():
+    wav = sdk_api.tts_sdk('文本', audio='24')
+    with open('tts.wav', 'wb') as f:
+        f.write(wav)
+
+
+def general_wavs(file_path, output_dir=None):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    for idx, line in enumerate(lines):
+        wav_bin = sdk_api.tts_sdk(line, audio='24')
+        if output_dir is None:
+            output_dir = './'
+        output_path = os.path.join(output_dir, f'{idx}.wav')
+        with open(output_path, 'wb') as f:
+            f.write(wav_bin)
+
+
+if __name__ == '__main__':
+    general_wavs(
+        'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\1120访谈流程.txt',
+        'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\访谈流程Audios'
+    )
