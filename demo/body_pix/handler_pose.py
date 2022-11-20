@@ -13,18 +13,23 @@ BG_COLOR = [255, 255, 255]
 
 
 def processing_frame(frame, annotation_image,
-                     coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER']):
+                     coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER'],
+                     is_white_bg=False,
+                     pose_result=None):
     image_height, image_width, _ = frame.shape
     # Convert the BGR image to RGB before processing.
-    results = pose.process(frame)
+    if pose_result is None:
+        results = pose.process(frame)
+    else:
+        results = pose_result
 
     if not results.pose_landmarks:
-        return annotation_image, {}
-    print(
-        f'Nose coordinates: ('
-        f'{results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE].x * image_width}, '
-        f'{results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE].y * image_height})'
-    )
+        return annotation_image, {}, results
+    # print(
+    #     f'Nose coordinates: ('
+    #     f'{results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE].x * image_width}, '
+    #     f'{results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE].y * image_height})'
+    # )
     coord_points = {}
     for coord_name in coord_names:
         visibility = results.pose_landmarks.landmark[mp_pose.PoseLandmark.__getitem__(coord_name)].visibility
@@ -44,17 +49,18 @@ def processing_frame(frame, annotation_image,
             }
 
     if annotation_image is not None:
-        condition = np.stack((results.segmentation_mask,) * 3, axis=-1) > 0.1
-        bg_image = np.zeros(annotation_image.shape, dtype=np.uint8)
-        bg_image[:] = BG_COLOR
-        annotation_image = np.where(condition, annotation_image, bg_image)
+        if is_white_bg:
+            condition = np.stack((results.segmentation_mask,) * 3, axis=-1) > 0.1
+            bg_image = np.zeros(annotation_image.shape, dtype=np.uint8)
+            bg_image[:] = BG_COLOR
+            annotation_image = np.where(condition, annotation_image, bg_image)
         # Draw pose landmarks on the image.
         mp_drawing.draw_landmarks(
             annotation_image,
             results.pose_landmarks,
             mp_pose.POSE_CONNECTIONS,
             landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
-    return annotation_image, coord_points
+    return annotation_image, coord_points, results
 
 
 def processing_image_demo(image_path, coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER']):

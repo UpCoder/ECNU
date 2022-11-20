@@ -23,6 +23,8 @@ def parse_video(video_path, target_fps=1):
     print(f'after, fps={fps}, total_frame={total_frame}')
     frames = []
     rate = fps // target_fps
+    if rate == 0:
+        rate = 1
     print(rate)
     for i in tqdm(range(int(total_frame))):
         ret = capture.grab()

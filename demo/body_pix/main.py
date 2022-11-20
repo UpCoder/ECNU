@@ -87,22 +87,24 @@ def pipeline_video_mediapipe_VideoProcessor(video_path):
     from VideoProcessor import VideoProcessor
     target_fps = 29
     save_fps = target_fps // 2
+    calc_frame_interval = 4
     frames = parse_video(video_path, target_fps=target_fps)
-    video_processor = VideoProcessor(window_size=target_fps // 4)
+    video_processor = VideoProcessor(window_size=target_fps // 4,
+                                     calc_frame_interval=calc_frame_interval)
     print(f'Start pipeline, {os.path.basename(video_path)}')
     model_name = 'mediapipe_VideoProcessor'
     save_dir = f'./{model_name}'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     annotation_frames, annotation_frames_with_txt = video_processor.processing_frames(frames)
-    for idx, annotation_frame in enumerate(annotation_frames):
-        cv2.imwrite(os.path.join(save_dir, f'0_{idx}.jpg'), annotation_frame)
-    for idx, annotation_frame in enumerate(annotation_frames_with_txt):
-        cv2.imwrite(os.path.join(save_dir, f'1_{idx}.jpg'), annotation_frame)
+    # for idx, annotation_frame in enumerate(annotation_frames):
+    #     cv2.imwrite(os.path.join(save_dir, f'0_{idx}.jpg'), annotation_frame)
+    # for idx, annotation_frame in enumerate(annotation_frames_with_txt):
+    #     cv2.imwrite(os.path.join(save_dir, f'1_{idx}.jpg'), annotation_frame)
     write_videos(
         annotation_frames_with_txt,
         fps=save_fps,
-        save_path=os.path.join(save_dir, 'final_result.mp4')
+        save_path=os.path.join(save_dir, os.path.basename(video_path))
     )
 
 def pipeline_video_mediapipe(video_path):
@@ -240,6 +242,9 @@ if __name__ == '__main__':
     # pipeline_video_mediapipe(
     #     'C:\\Users\\cs_li\\Documents\\WXWork\\1688854406374298\\Cache\\Video\\2022-10\\3.mp4'
     # )
+    # pipeline_video_mediapipe_VideoProcessor(
+    #     'C:\\Users\\cs_li\\Documents\\WXWork\\1688854406374298\\Cache\\Video\\2022-10\\3.mp4'
+    # )
     pipeline_video_mediapipe_VideoProcessor(
-        'C:\\Users\\cs_li\\Documents\\WXWork\\1688854406374298\\Cache\\Video\\2022-10\\3.mp4'
+        'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\cy.mp4'
     )

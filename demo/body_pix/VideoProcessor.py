@@ -61,13 +61,23 @@ class HandProcessor(object):
         self.window_size = window_size
         self.left_hand_last_move = (HOLDING, HOLDING, HOLDING)
         self.right_hand_last_move = (HOLDING, HOLDING, HOLDING)
+        self.last_hand_result = None
 
-    def process(self, frame, annotation_image=None):
-        annotation_image, left_coord_infos, right_coord_infos = processing_hand_frame(
-            image=frame,
-            annotation_image=annotation_image,
-            coord_names=self.key_point_names
-        )
+    def process(self, frame, annotation_image=None, refuse=False):
+        if refuse and self.last_hand_result is not None:
+            annotation_image, left_coord_infos, right_coord_infos, hand_result = processing_hand_frame(
+                image=frame,
+                annotation_image=annotation_image,
+                coord_names=self.key_point_names,
+                hand_result=self.last_hand_result
+            )
+        else:
+            annotation_image, left_coord_infos, right_coord_infos, hand_result = processing_hand_frame(
+                image=frame,
+                annotation_image=annotation_image,
+                coord_names=self.key_point_names
+            )
+            self.last_hand_result = hand_result
         self.cur_left_hand = self.handler_hand_info_by_keypoints(left_coord_infos)
         self.cur_right_hand = self.handler_hand_info_by_keypoints(right_coord_infos)
         self.left_hand_infos.append(self.cur_left_hand)
@@ -132,13 +142,23 @@ class BodyProcessor(object):
         self.body_infos = []
         self.window_size = window_size
         self.body_last_move = (HOLDING, HOLDING, HOLDING)
+        self.last_body_result = None
 
-    def process(self, frame, annotation_image):
-        annotation_image, cur_body_coords = processing_pose_frame(
-            frame=frame,
-            annotation_image=annotation_image,
-            coord_names=self.key_point_names
-        )
+    def process(self, frame, annotation_image, refuse=False):
+        if refuse and self.last_body_result is not None:
+            annotation_image, cur_body_coords, body_result = processing_pose_frame(
+                frame=frame,
+                annotation_image=annotation_image,
+                coord_names=self.key_point_names,
+                pose_result=self.last_body_result
+            )
+        else:
+            annotation_image, cur_body_coords, body_result = processing_pose_frame(
+                frame=frame,
+                annotation_image=annotation_image,
+                coord_names=self.key_point_names
+            )
+            self.last_body_result = body_result
         self.cur_body_info = self.handler_body_info_by_keypoints(cur_body_coords)
         self.body_infos.append(self.cur_body_info)
         self.body_last_move = handler_move(self.body_infos, self.window_size, self.body_last_move)
@@ -180,18 +200,31 @@ class BodyProcessor(object):
 
 
 class VideoProcessor(object):
-    def __init__(self, window_size=16):
+    def __init__(self, window_size=16, txt_loc=(10, 60),
+                 line_width=30, calc_frame_interval=4):
         self.body_processor = BodyProcessor(window_size=window_size)
         self.hand_processor = HandProcessor(window_size=window_size)
+        self.txt_loc = txt_loc
+        self.line_width = line_width
+        self.count_idx = 0
+        self.calc_frame_interval = calc_frame_interval
 
     def processing_frame(self, frame_image, annotation_image):
+        if self.count_idx % self.calc_frame_interval == 0:
+            refuse = False
+        else:
+            refuse = True
+        self.count_idx += 1
         if annotation_image is None:
             annotation_image = frame_image.copy()
+
         annotation_image, (body_lr_str, body_ud_str, body_fb_str) = self.body_processor.process(frame_image,
-                                                                                                annotation_image)
+                                                                                                annotation_image,
+                                                                                                refuse=refuse)
         annotation_image, (lh_lr_str, lh_ud_str, lh_fb_str), \
         (rh_lr_str, rh_ud_str, rh_fb_str) = self.hand_processor.process(frame=frame_image,
-                                                                        annotation_image=annotation_image)
+                                                                        annotation_image=annotation_image,
+                                                                        refuse=refuse)
         annotation_image_txt = annotation_image.copy()
         annotation_image_txt = self.put_txts(annotation_image_txt, [
             f'Body Left/Right: {body_lr_str}',
@@ -201,7 +234,7 @@ class VideoProcessor(object):
             f'Left Hand Up/Down: {lh_ud_str}',
             f'Right Hand Left/Right: {rh_lr_str}',
             f'Right Hand Up/Down: {rh_ud_str}'
-        ], (10, 60), 30)
+        ], self.txt_loc, self.line_width)
         return annotation_image, annotation_image_txt
 
     def put_txts(self, frame, txts, start_loc, line_width, font=cv2.FONT_HERSHEY_SIMPLEX):
@@ -227,3 +260,8 @@ class VideoProcessor(object):
         """
         self.hand_processor.reset()
         self.body_processor.reset()
+        self.count_idx = 0
+
+
+if __name__ == '__main__':
+    pass

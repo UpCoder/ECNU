@@ -11,12 +11,17 @@ hands = mp_hands.Hands(
      )
 
 
-def processing_frame(image, annotation_image=None, coord_names=[]):
+def processing_frame(image, annotation_image=None,
+                     coord_names=[],
+                     hand_result=None):
     image = image[:, :, ::-1]
-    results = hands.process(image)
-    print('Handedness:', results.multi_handedness)
+    if hand_result is None:
+        results = hands.process(image)
+    else:
+        results = hand_result
+    # print('Handedness:', results.multi_handedness)
     if not results.multi_hand_landmarks:
-        return annotation_image, None, None
+        return annotation_image, None, None, results
     image_height, image_width, _ = image.shape
 
     left_hand_coords = {}
@@ -29,7 +34,7 @@ def processing_frame(image, annotation_image=None, coord_names=[]):
                 'y': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].y,
                 'z': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].z
             }
-        print(hand_info.classification[0].label)
+        # print(hand_info.classification[0].label)
         if hand_info.classification[0].label == 'Right':
             right_hand_coords = hand_coords
         elif hand_info.classification[0].label == 'Left':
@@ -41,7 +46,7 @@ def processing_frame(image, annotation_image=None, coord_names=[]):
                 mp_hands.HAND_CONNECTIONS,
                 mp_drawing_styles.get_default_hand_landmarks_style(),
                 mp_drawing_styles.get_default_hand_connections_style())
-    return annotation_image, left_hand_coords, right_hand_coords
+    return annotation_image, left_hand_coords, right_hand_coords, results
 
 
 def preprocessing_image_demo(image, is_path=True, coord_names=[]):
