@@ -120,7 +120,7 @@ class AudioASRRecord(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Demo')
     parser.add_argument('--host', type=str, default="192.168.0.107")
-    parser.add_argument('--port', type=int, default=8888)
+    parser.add_argument('--port', type=int, default=8889)
     args = parser.parse_args()
     print(args)
     print('init object')

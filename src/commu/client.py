@@ -44,8 +44,7 @@ class SocketClient(object):
     def send_asr_txt(self, asr_txt):
         try:
             self.socket_client.send(json.dumps({
-                'dialogue': asr_txt,
-                'data': ''
+                'dialogue': asr_txt
             }).encode())
         except Exception as e:
             print(e)
