@@ -26,7 +26,7 @@ class SocketServer(object):
         length = received_data["length"]
         image_data = base64.b64decode(received_data["data"].encode())
         print(send_time, length)
-        print(image_data)
+        # print(image_data)
         img = cv2.imdecode(np.frombuffer(image_data, dtype='uint8'), cv2.IMREAD_COLOR)
         print(type(img), img.shape)
         cv2.imwrite('received.jpg', img)

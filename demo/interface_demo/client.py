@@ -22,11 +22,12 @@ class SocketClient(object):
     def _pack_data(self, image_data):
         image_code = base64.b64encode(image_data).decode()
         packed_data = {
-            "time": time.time(),
+            "time": str(time.time()),
             "type": "jpg",
-            "length": len(image_code),
+            "length": str(len(image_code)),
             "data": image_code
         }
+        print(packed_data)
         return json.dumps(packed_data)
 
     def send_binary(self, image_data):
