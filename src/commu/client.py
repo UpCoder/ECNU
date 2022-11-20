@@ -19,16 +19,11 @@ class SocketClient(object):
         return
 
     def _pack_image_data(self, image_data, infos):
-        image_code = base64.b64encode(image_data).decode('utf-8')
+        image_code = base64.b64encode(image_data).decode()
         packed_data = {
-            "type": "",
-            "time": "",
-            "length": ""
+            "data": image_code
         }
-        # for k, v in infos.items():
-        #     packed_data[k] = str(v)
-        # print(packed_data)
-        packed_data["data"] = image_code
+
         return json.dumps(packed_data)
 
     def send_image(self, image, infos):

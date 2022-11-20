@@ -9,8 +9,8 @@ from commu.client import SocketClient
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Demo')
-    parser.add_argument('--width', type=int, default=1280)
-    parser.add_argument('--height', type=int, default=960)
+    parser.add_argument('--width', type=int, default=640)
+    parser.add_argument('--height', type=int, default=480)
     parser.add_argument('--send_data', type=bool, default=False)
     parser.add_argument('--host', type=str, default="localhost")
     parser.add_argument('--port', type=int, default=8888)
@@ -34,6 +34,8 @@ if __name__ == '__main__':
         im_rd = im_rd[:480, 150:150+340]
         print(im_rd.shape)
 
+        # image = im_rd
+        # infos = {}
         image, infos = face.face_infer(im_rd)
         print(infos)
 
