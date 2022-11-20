@@ -1,4 +1,5 @@
 import cv2
+import time
 import numpy as np
 import mediapipe as mp
 
@@ -64,6 +65,7 @@ class FaceAnalyzer(object):
             .get_default_face_mesh_iris_connections_style())
 
     def face_infer(self, image):
+        start_time = time.time()
         image.flags.writeable = False
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.face_mesh.process(image)
@@ -76,6 +78,7 @@ class FaceAnalyzer(object):
 
             self.draw_face(image, face_landmarks)
             self.landmark_3d = self.process_landmark(face_landmarks, self.width, self.height)
+        print(time.time() - start_time)
 
         image = cv2.flip(image, 1)
         infos = landmark_handler(self.landmark_3d, self.width, self.height)

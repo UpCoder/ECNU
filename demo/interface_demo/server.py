@@ -34,5 +34,6 @@ class SocketServer(object):
 
 if __name__ == '__main__':
     server = SocketServer()
-    server.bind()
+    server.bind(host="192.168.0.109", post=8888)
+
     server.receive_image()

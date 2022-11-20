@@ -19,22 +19,27 @@ class SocketClient(object):
         return
 
     def _pack_image_data(self, image_data, infos):
-        image_code = base64.b64encode(image_data).decode()
+        image_code = base64.b64encode(image_data).decode('utf-8')
         packed_data = {
-            "type": "image",
-            "time": str(time.time()),
-            "length": str(len(image_code)),
-            "data": image_code,
-            "attr": infos
+            "type": "",
+            "time": "",
+            "length": ""
         }
-        print(packed_data)
+        # for k, v in infos.items():
+        #     packed_data[k] = str(v)
+        # print(packed_data)
+        packed_data["data"] = image_code
         return json.dumps(packed_data)
 
     def send_image(self, image, infos):
-        img_bytes = np.array(cv2.imencode('.jpg', image)[1]).tostring()
-        packed_data = self._pack_image_data(img_bytes, infos)
-        self.socket_client.send(packed_data.encode())
-        print("Send done.")
+        try:
+            img_bytes = np.array(cv2.imencode('.jpg', image)[1]).tostring()
+            packed_data = self._pack_image_data(img_bytes, infos)
+            self.socket_client.send(packed_data.encode())
+        except Exception as e:
+            print(e)
+        else:
+            print("Send done.")
 
     def send_image_from_path(self, image_path):
         img = cv2.imread(image_path)
