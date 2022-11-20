@@ -83,6 +83,27 @@ def pipeline_video(video_path, model):
         save_path=os.path.join(save_dir, 'hand_seg.avi')
     )
 
+def pipeline_video_mediapipe_VideoProcessor(video_path):
+    from VideoProcessor import VideoProcessor
+    target_fps = 29
+    save_fps = target_fps // 2
+    frames = parse_video(video_path, target_fps=target_fps)
+    video_processor = VideoProcessor(window_size=target_fps // 4)
+    print(f'Start pipeline, {os.path.basename(video_path)}')
+    model_name = 'mediapipe_VideoProcessor'
+    save_dir = f'./{model_name}'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    annotation_frames, annotation_frames_with_txt = video_processor.processing_frames(frames)
+    for idx, annotation_frame in enumerate(annotation_frames):
+        cv2.imwrite(os.path.join(save_dir, f'0_{idx}.jpg'), annotation_frame)
+    for idx, annotation_frame in enumerate(annotation_frames_with_txt):
+        cv2.imwrite(os.path.join(save_dir, f'1_{idx}.jpg'), annotation_frame)
+    write_videos(
+        annotation_frames_with_txt,
+        fps=save_fps,
+        save_path=os.path.join(save_dir, 'final_result.mp4')
+    )
 
 def pipeline_video_mediapipe(video_path):
     print(f'Start pipeline, {os.path.basename(video_path)}')
@@ -216,6 +237,9 @@ if __name__ == '__main__':
     #     'WIN_20221029_19_10_12_Pro.mp4',
     #     bp_model
     # )
-    pipeline_video_mediapipe(
+    # pipeline_video_mediapipe(
+    #     'C:\\Users\\cs_li\\Documents\\WXWork\\1688854406374298\\Cache\\Video\\2022-10\\3.mp4'
+    # )
+    pipeline_video_mediapipe_VideoProcessor(
         'C:\\Users\\cs_li\\Documents\\WXWork\\1688854406374298\\Cache\\Video\\2022-10\\3.mp4'
     )

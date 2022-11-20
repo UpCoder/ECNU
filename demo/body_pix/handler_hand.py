@@ -11,21 +11,29 @@ hands = mp_hands.Hands(
      )
 
 
-def processing_frame(image, annotation_image=None):
+def processing_frame(image, annotation_image=None, coord_names=[]):
     image = image[:, :, ::-1]
     results = hands.process(image)
     print('Handedness:', results.multi_handedness)
     if not results.multi_hand_landmarks:
-        return annotation_image
+        return annotation_image, None, None
     image_height, image_width, _ = image.shape
 
-    for hand_landmarks in results.multi_hand_landmarks:
-        # print('hand_landmarks:', hand_landmarks)
-        # print(
-        #     f'Index finger tip coordinates: (',
-        #     f'{hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x * image_width}, '
-        #     f'{hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y * image_height})'
-        # )
+    left_hand_coords = {}
+    right_hand_coords = {}
+    for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
+        hand_coords = {}
+        for coord_name in coord_names:
+            hand_coords[coord_name] = {
+                'x': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].x,
+                'y': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].y,
+                'z': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].z
+            }
+        print(hand_info.classification[0].label)
+        if hand_info.classification[0].label == 'Right':
+            right_hand_coords = hand_coords
+        elif hand_info.classification[0].label == 'Left':
+            left_hand_coords = hand_coords
         if annotation_image is not None:
             mp_drawing.draw_landmarks(
                 annotation_image,
@@ -33,10 +41,10 @@ def processing_frame(image, annotation_image=None):
                 mp_hands.HAND_CONNECTIONS,
                 mp_drawing_styles.get_default_hand_landmarks_style(),
                 mp_drawing_styles.get_default_hand_connections_style())
-    return annotation_image
+    return annotation_image, left_hand_coords, right_hand_coords
 
 
-def preprocessing_image_demo(image, is_path=True):
+def preprocessing_image_demo(image, is_path=True, coord_names=[]):
     with mp_hands.Hands(
         static_image_mode=True,
         max_num_hands=2,
@@ -48,18 +56,26 @@ def preprocessing_image_demo(image, is_path=True):
             # Convert the BGR image to RGB before processing.
         results = hands.process(image)
         print('Handedness:', results.multi_handedness)
+        print('Handedness:', results.multi_hand_landmarks)
         if not results.multi_hand_landmarks:
             return
         image_height, image_width, _ = image.shape
         annotated_image = image.copy()
-
-        for hand_landmarks in results.multi_hand_landmarks:
-            print('hand_landmarks:', hand_landmarks)
-            print(
-                f'Index finger tip coordinates: (',
-                f'{hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x * image_width}, '
-                f'{hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y * image_height})'
-            )
+        left_hand_coords = {}
+        right_hand_coords = {}
+        for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
+            hand_coords = {}
+            for coord_name in coord_names:
+                hand_coords[coord_name] = {
+                    'x': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].x,
+                    'y': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].y,
+                    'z': hand_landmarks.landmark[mp_hands.HandLandmark.__getitem__(coord_name)].z
+                }
+            print(hand_info.classification[0].label)
+            if hand_info.classification[0].label == 'Right':
+                right_hand_coords = hand_coords
+            elif hand_info.classification[0].label == 'Left':
+                left_hand_coords = hand_coords
             mp_drawing.draw_landmarks(
                 annotated_image,
                 hand_landmarks,
@@ -68,7 +84,7 @@ def preprocessing_image_demo(image, is_path=True):
                 mp_drawing_styles.get_default_hand_connections_style())
         cv2.imwrite(
             'hand.jpg', cv2.flip(annotated_image, 1))
-
+    return left_hand_coords, right_hand_coords
 
 
 def webcam_demo():
@@ -110,8 +126,19 @@ def webcam_demo():
 
 
 if __name__ == '__main__':
-    preprocessing_image_demo(
+    left_hand_info, right_hand_info = preprocessing_image_demo(
         'body_test3.png',
-        is_path=True
+        is_path=True,
+        coord_names=[
+            'INDEX_FINGER_PIP',
+            'INDEX_FINGER_DIP',
+            'MIDDLE_FINGER_PIP',
+            'MIDDLE_FINGER_DIP',
+            'PINKY_PIP',
+            'PINKY_DIP',
+
+        ]
     )
+    print(f'left_hand_info: {left_hand_info}')
+    print(f'right_hand_info: {right_hand_info}')
     # webcam_demo()

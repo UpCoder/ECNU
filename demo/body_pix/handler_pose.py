@@ -12,7 +12,8 @@ pose = mp_pose.Pose(
 BG_COLOR = [255, 255, 255]
 
 
-def processing_frame(frame, annotation_image, coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER']):
+def processing_frame(frame, annotation_image,
+                     coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER']):
     image_height, image_width, _ = frame.shape
     # Convert the BGR image to RGB before processing.
     results = pose.process(frame)
