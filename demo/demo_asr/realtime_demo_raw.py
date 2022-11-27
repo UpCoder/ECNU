@@ -185,53 +185,6 @@ class AudioASRRecord(object):
             return True
         return False
 
-    def main_loop(self):
-        print('main loop')
-        receive_message('localhost', 8881)
-
-import socket
-
-
-def receive_message_core(conn):
-    while True:
-        messages = conn.recv(1024).decode('utf-8')
-        print(f'messages: {messages}, {json.loads(messages)}')
-
-
-def send_message_core():
-    sock = SocketClient()
-    sock.connet('localhost', 8881)
-    while True:
-        data = json.dumps({
-            'step_id': random.randint(0, 10)
-        }).encode('utf-8')
-        print(f'send_data: {data}')
-        sock.socket_client.send(data)
-        time.sleep(2)
-
-
-def receive_message(ip, port):
-    """
-    接受消息
-    :return:
-    """
-    sock = socket.socket()
-    print('start bind')
-    sock.bind((ip, port))
-    print('listen')
-    sock.listen(1)
-    while True:
-        try:
-            # 接收来自服务器的数据
-            print('accept')
-            threading.Thread(target=send_message_core, args=()).start()
-            conn, addr = sock.accept()
-            print('receive after.')
-            threading.Thread(target=receive_message_core, args=(conn,)).start()
-        except Exception as e:
-            logging.exception(e)
-            break
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Demo')
@@ -246,6 +199,5 @@ if __name__ == '__main__':
     print('start get asr result')
     # audit_asr_processor.start_get_asr_result_thread()
     print('start loop')
-    # audit_asr_processor.demo_realtime_two_thread()
-    # audit_asr_processor.start_demo_realtime_two_thread()
-    audit_asr_processor.main_loop()
+    audit_asr_processor.demo_realtime_two_thread()
+    audit_asr_processor.start_demo_realtime_two_thread()
