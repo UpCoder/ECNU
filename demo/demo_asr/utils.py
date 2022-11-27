@@ -44,7 +44,13 @@ def audio_receive_message(conn, audio_processor_obj, global_status:GlobalStatus)
             time.sleep(0.1)
 
             global_status.send_msg_client.send_message(json.dumps({
-                'order': '0'
+                'order': '0',
+                'speech_tone': str(0),
+                'speech_pause_count': str(0),
+                'speech_loudness': '{:.5f}'.format(0),
+                'speech_speed': str(0),
+                'speech_pitch': str(0),
+                'speech_length': str(0)
             }))
             global_status.current_question_id = 0
         elif content == 'AudioFinish':

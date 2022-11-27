@@ -106,12 +106,15 @@ class AudioASRRecord(object):
                     self.global_status.current_question_id].content)
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(
-                    {"order": str(self.global_status.current_question_id)}
+                    {
+                        "order": str(self.global_status.current_question_id),
+                        **self.calc_metrics()
+                    },
                 ))
-                time.sleep(0.1)
-                self.global_status.send_msg_client.send_message(json.dumps(
-                    self.calc_metrics()
-                ))
+                # time.sleep(0.1)
+                # self.global_status.send_msg_client.send_message(json.dumps(
+                #     self.calc_metrics()
+                # ))
             continue
 
     def calc_metrics(self):
