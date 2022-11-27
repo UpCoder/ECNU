@@ -17,6 +17,14 @@ class AudioProcessor(object):
     def __init__(self, sample_rate, stop_record_duration, asr_record_duration,
                  n_channels, stop_interval=1, stop_threshold=3000,
                  global_status:GlobalStatus=None):
+        self.sample_rate = sample_rate
+        self.stop_record_duration = stop_record_duration
+        self.asr_record_duration = asr_record_duration
+        self.n_channels = n_channels
+        self.stop_interval = stop_interval
+        self.stop_threshold = stop_threshold
+        self.global_status = global_status
+
         self.audio_asr_object = AudioASRRecord(sample_rate, record_duration=asr_record_duration,
                                                n_channels=n_channels, global_status=global_status)
         self.audio_stop_object = AudioStopRecord(sample_rate, stop_record_duration, n_channels,
@@ -24,8 +32,18 @@ class AudioProcessor(object):
         # 开启监听
         # self.audio_stop_object.start_listen_is_stop_thread()
         self.audio_asr_object.start_get_asr_result_thread()
-        self.audio_asr_object.start_demo_realtime_two_thread()
+        self.audio_asr_object.start_realtime_recording_thread()
 
+    def reset(self):
+        self.audio_asr_object = AudioASRRecord(self.sample_rate, record_duration=self.asr_record_duration,
+                                               n_channels=self.n_channels, global_status=self.global_status)
+        self.audio_stop_object = AudioStopRecord(self.sample_rate, self.stop_record_duration, self. n_channels,
+                                                 self.stop_interval, self.stop_threshold,
+                                                 global_status=self.global_status)
+        # 开启监听
+        # self.audio_stop_object.start_listen_is_stop_thread()
+        self.audio_asr_object.start_get_asr_result_thread()
+        self.audio_asr_object.start_realtime_recording_thread()
 
 def start_pipeline(ip, port):
     global global_status

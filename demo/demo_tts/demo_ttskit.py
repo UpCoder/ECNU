@@ -23,6 +23,8 @@ def general_wavs(file_path, output_dir=None):
 
 if __name__ == '__main__':
     general_wavs(
-        'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\1120访谈流程.txt',
-        'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\访谈流程Audios'
+        # 'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\1120访谈流程.txt',
+        # 'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\访谈流程Audios'
+        'C:\\Users\\cs_li\\PycharmProjects\\body_seg\\src\\language\\questions1.txt',
+        'C:\\Users\\cs_li\\PycharmProjects\\body_seg\\src\\language\\question1Audios',
     )

@@ -102,10 +102,6 @@ class AudioASRRecord(object):
                 self.global_status.send_msg_client.send_message(json.dumps(
                     {"order": self.global_status.current_question_id}
                 ))
-                time.sleep(0.1)
-                self.global_status.send_msg_client.send_message(json.dumps(
-                    {"order": self.global_status.current_question_id}
-                ))
             continue
 
     def get_asr_result(self, record_bytes):

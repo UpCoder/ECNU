@@ -16,6 +16,12 @@ class GlobalStatus(object):
         self.questions = Questions()
         # self.send_msg_client = None
 
+    def reset(self):
+        self.current_question_id = -1
+        self.stop_in_listen = False
+        self.asr_in_listen = False
+        self.is_stop = False
+
 
 def audio_receive_message(conn, audio_processor_obj, global_status:GlobalStatus):
     while True:
@@ -46,3 +52,7 @@ def audio_receive_message(conn, audio_processor_obj, global_status:GlobalStatus)
             global_status.asr_in_listen = True
             global_status.stop_in_listen = True
             global_status.is_stop = False
+        elif content == 'StopProgram':
+            global_status.reset()
+            audio_processor_obj.reset()
+
