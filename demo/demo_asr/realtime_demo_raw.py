@@ -125,7 +125,7 @@ class AudioASRRecord(object):
         loudness = []
         for single_record in data:
             # print(single_record[np.where(single_record['record'] >= 0)])
-            loudness.append(np.mean(single_record[single_record['record']]))
+            loudness.append(np.mean(single_record['record']))
 
         # 计算语速
         speech_speed = len(self.question_answers[-1]) / (self.answer_seconds[-1] * 60)
