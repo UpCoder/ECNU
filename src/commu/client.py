@@ -51,6 +51,14 @@ class SocketClient(object):
         else:
             print('Send Done.')
 
+    def send_message(self, messages):
+        try:
+            self.socket_client.send(messages.encode('utf-8'))
+        except Exception as e:
+            print(e)
+        else:
+            print('Send Done.')
+
     def send_image_from_path(self, image_path):
         img = cv2.imread(image_path)
         self.send_image(img)
