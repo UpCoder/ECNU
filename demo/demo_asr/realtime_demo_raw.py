@@ -85,13 +85,13 @@ class AudioASRRecord(object):
             self.cur_question_answer += asr_result
             # TODO send msg
             if asr_result != '':
-                # self.socket_client.send_asr_txt('被试：' + asr_result)
-                self.global_status.send_msg_client.send_message(json.dumps(
-                    {
-                        "dialogue": str('被试：' + asr_result),
-                        **self.calc_metrics()
-                    },
-                ))
+                self.socket_client.send_asr_txt('被试：' + asr_result)
+                # self.global_status.send_msg_client.send_message(json.dumps(
+                #     {
+                #         "dialogue": str('被试：' + asr_result),
+                #         **self.calc_metrics()
+                #     },
+                # ))
             if self.global_status.is_stop:
                 # send next play audio
                 self.global_status.asr_in_listen = False
