@@ -83,7 +83,7 @@ class AudioASRRecord(object):
             self.cur_question_answer += asr_result
             # TODO send msg
             if asr_result != '':
-                self.socket_client.send_asr_txt('被试:' + asr_result)
+                self.socket_client.send_asr_txt('被试：' + asr_result)
             if self.global_status.is_stop:
                 # send next play audio
                 self.global_status.asr_in_listen = False
@@ -96,11 +96,11 @@ class AudioASRRecord(object):
                 self.global_status.current_question_id = next_question_id
                 # self.global_status.current_question_id += 1
 
-                self.global_status.send_msg_client.send_asr_txt('虚拟人:' + self.global_status.questions.questions[
+                self.global_status.send_msg_client.send_asr_txt('虚拟人：' + self.global_status.questions.questions[
                     self.global_status.current_question_id].content)
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(
-                    {"order": self.global_status.current_question_id}
+                    {"order": str(self.global_status.current_question_id)}
                 ))
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(

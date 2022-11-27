@@ -47,32 +47,44 @@ class AudioProcessor(object):
 
 def start_pipeline(ip, port):
     global global_status
-    sock = socket.socket()
-    print('start bind')
-    sock.bind((ip, port))
-    print('listen')
-    sock.listen(1)
-    while True:
-        try:
+    # sock = socket.socket()
+    # print('start bind')
+    # sock.bind((ip, port))
+    # print('listen')
+    # sock.listen(1)
+    # while True:
+    #     try:
             # 接收来自服务器的数据
-            conn, addr = sock.accept()
-            global_status = GlobalStatus('localhost', 8882)
-            audio_processor = AudioProcessor(
-                sample_rate=16000, asr_record_duration=5,
-                stop_record_duration=1, n_channels=2,
-                stop_interval=3, stop_threshold=3000,
-                global_status=global_status
-            )
-            print('receive after.')
-            thread1 = threading.Thread(target=audio_receive_message, args=(conn,
-                                                                           audio_processor,
-                                                                           global_status,))
-            thread1.start()
-        except Exception as e:
-            logging.exception(e)
-            break
+            # conn, addr = sock.accept()
+            # global_status = GlobalStatus('localhost', 8889)
+            # audio_processor = AudioProcessor(
+            #     sample_rate=16000, asr_record_duration=5,
+            #     stop_record_duration=1, n_channels=2,
+            #     stop_interval=3, stop_threshold=3000,
+            #     global_status=global_status
+            # )
+            # print('receive after.')
+            # thread1 = threading.Thread(target=audio_receive_message, args=(global_status.send_msg_client.socket_client,
+            #                                                                audio_processor,
+            #                                                                global_status,))
+            # thread1.start()
+        # except Exception as e:
+        #     logging.exception(e)
+        #     break
+    global_status = GlobalStatus('localhost', 8889)
+    audio_processor = AudioProcessor(
+        sample_rate=16000, asr_record_duration=5,
+        stop_record_duration=1, n_channels=2,
+        stop_interval=3, stop_threshold=3000,
+        global_status=global_status
+    )
+    print('receive after.')
+    thread1 = threading.Thread(target=audio_receive_message, args=(global_status.send_msg_client.socket_client,
+                                                                   audio_processor,
+                                                                   global_status,))
+    thread1.start()
 
 
 if __name__ == '__main__':
-    start_pipeline('localhost', 8881)
+    start_pipeline('localhost', 8880)
     time.sleep(1000000)

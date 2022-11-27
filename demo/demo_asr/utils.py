@@ -13,6 +13,7 @@ class GlobalStatus(object):
         self.is_stop = False
         self.send_msg_client = SocketClient()
         self.send_msg_client.connet(ip, port)
+
         self.questions = Questions()
         # self.send_msg_client = None
 
@@ -38,12 +39,12 @@ def audio_receive_message(conn, audio_processor_obj, global_status:GlobalStatus)
             # audio_processor_obj.audio_stop_object.reset()
             # audio_processor_obj.audio_asr_object.reset()
 
-            global_status.send_msg_client.send_asr_txt('虚拟人:' + global_status.questions.questions[0].content)
+            global_status.send_msg_client.send_asr_txt('虚拟人：' + global_status.questions.questions[0].content)
 
             time.sleep(0.1)
 
             global_status.send_msg_client.send_message(json.dumps({
-                'order': 0
+                'order': '0'
             }))
             global_status.current_question_id = 0
         elif content == 'AudioFinish':
