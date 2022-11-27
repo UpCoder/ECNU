@@ -31,16 +31,16 @@ if __name__ == '__main__':
         ret_flag, im_row = camera.video_capure.read()
         print('camera caption cost:', time.time() - start_time)
         im_rd = im_row.copy()
-        # im_rd1 = im_row.copy()
+        im_rd1 = im_row.copy()
         print(im_rd.shape)
-        im_rd = im_rd[:480, 150:150+340]
+        # im_rd = im_rd[:480, 150:150+340]
         # print(im_rd.shape)
 
         # image = im_rd
         # infos = {}
         image, infos = face.face_infer(im_rd)
-        # print(infos)
-        # image, infos = body.processing_frame(im_rd1, image)
+        # # print(infos)
+        image, _ = body.processing_frame(im_rd1, image)
 
         send_time = time.time()
         if args.send_data:

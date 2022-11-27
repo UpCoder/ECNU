@@ -8,9 +8,9 @@ import multiprocessing
 import time
 import sounddevice as sd
 import numpy as np
-from zijie.release_interface import get_client
+from demo.demo_asr.zijie.release_interface import get_client
 from src.commu.client import SocketClient
-from utils import GlobalStatus
+from demo.demo_asr.utils import GlobalStatus
 
 
 class AudioASRRecord(object):

@@ -5,9 +5,9 @@ import logging
 import time
 
 from src.commu.client import SocketClient
-from realtime_demo_raw import AudioASRRecord
-from realtime_if_stop import AudioStopRecord
-from utils import GlobalStatus, audio_receive_message
+from demo.demo_asr.realtime_demo_raw import AudioASRRecord
+from demo.demo_asr.realtime_if_stop import AudioStopRecord
+from demo.demo_asr.utils import GlobalStatus, audio_receive_message
 
 
 global global_status
