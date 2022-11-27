@@ -5,6 +5,8 @@ import time
 
 global send_msgs
 send_msgs = []
+global conn
+conn = None
 
 def receive_message(ip, port):
     sock = socket.socket()
@@ -12,10 +14,12 @@ def receive_message(ip, port):
     sock.bind((ip, port))
     print('listen')
     sock.listen(1)
+    global conn
     while True:
         try:
             # 接收来自服务器的数据
-            conn, addr = sock.accept()
+            connection, addr = sock.accept()
+            conn = connection
             print(f'connect by: {(conn, addr)}')
             break
         except Exception as e:
@@ -35,10 +39,11 @@ def receive_message(ip, port):
 
 
 def send_message(ip, port):
-    send_client = socket.socket()
+    global conn
     while True:
         try:
-            send_client.connect((ip, port))
+            if conn is None:
+                conn
             break
         except Exception as e:
             print(f'connect failed: {e}')
@@ -47,12 +52,12 @@ def send_message(ip, port):
     while True:
         if len(send_msgs) > 0:
             print(f'\nsend: {send_msgs[-1]}\n')
-            send_client.send(send_msgs[-1].encode('utf-8'))
+            conn.send(send_msgs[-1].encode('utf-8'))
             send_msgs.pop()
 
 
-thread1 = threading.Thread(target=send_message, args=('localhost', 8881))
-thread2 = threading.Thread(target=receive_message, args=('localhost', 8882))
+thread1 = threading.Thread(target=send_message, args=('localhost', 8889))
+thread2 = threading.Thread(target=receive_message, args=('localhost', 8889))
 thread1.start()
 thread2.start()
 time.sleep(100000)

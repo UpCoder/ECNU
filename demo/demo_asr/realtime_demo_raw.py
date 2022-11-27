@@ -52,6 +52,8 @@ class AudioASRRecord(object):
         self.stop_records = []
         self.question_answers = []
         self.cur_question_answer = ''
+        self.answer_seconds = []   # 记录历史问题回答的秒数
+        self.cur_seconds = 0    # 记录当前问题回答的秒数
         if client is None:
             self.socket_client = self.global_status.send_msg_client
         else:
@@ -93,6 +95,10 @@ class AudioASRRecord(object):
                 next_question_id = self.global_status.questions.get_next_question(
                     self.global_status.current_question_id, self.cur_question_answer)
                 self.cur_question_answer = ''
+
+                self.answer_seconds.append(self.cur_seconds)
+                self.cur_seconds = 0
+
                 self.global_status.current_question_id = next_question_id
                 # self.global_status.current_question_id += 1
 
@@ -104,9 +110,48 @@ class AudioASRRecord(object):
                 ))
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(
-                    {"order": self.global_status.current_question_id}
+                    self.calc_metrics()
                 ))
             continue
+
+    def calc_metrics(self):
+        """
+        计算相关指标
+        :return:
+        """
+        # 计算响度
+        batch_size = self.answer_seconds[-1] // self.seconds
+        data = self.stop_records[len(self.stop_records) - batch_size:]
+        loudness = []
+        for single_record in data:
+            # print(single_record[np.where(single_record['record'] >= 0)])
+            loudness.append(np.mean(single_record[single_record['record']]))
+
+        # 计算语速
+        speech_speed = len(self.question_answers[-1]) / (self.answer_seconds[-1] * 60)
+
+        # 计算说话时长
+        speech_length = self.answer_seconds[-1]
+
+        # 计算音调变化
+        speech_tone = ''
+
+        # 计算停顿次数
+        speech_pause_count = 0
+
+        # 计算高音pitch
+        speech_pitch = 0
+
+        return {
+            'speech_tone': str(speech_tone),
+            'speech_pause_count': str(speech_pause_count),
+            'speech_loudness': '{:.5f}'.format(np.mean(loudness)),
+            'speech_speed': str(speech_speed),
+            'speech_pitch': str(speech_pitch),
+            'speech_length': str(speech_length)
+        }
+
+
 
     def get_asr_result(self, record_bytes):
         result = asyncio.run(self.asr_client.execute_raw(record_bytes, self.channel,
@@ -137,7 +182,8 @@ class AudioASRRecord(object):
             sd.wait()
             max_record = np.max(myrecording)
             min_record = np.min(myrecording)
-            print(f'end rec max_record: {type(myrecording)} {max_record} {min_record}')
+            self.cur_seconds += self.seconds
+            print(f'end rec max_record: {type(myrecording)} {np.shape(myrecording)} {max_record} {min_record}')
             self.stop_records.append({
                 'record': myrecording,
                 'max': max_record,
