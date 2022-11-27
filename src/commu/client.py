@@ -5,6 +5,19 @@ import base64
 import socket
 import numpy as np
 
+VisionAttr = ["face_expression",
+                          "face_smile",
+                          "face_frown",
+                          "face_iris_vertical",
+                          "face_iris_horizontal",
+                          "face_nod_count",
+                          "face_horizontal_orientation",
+                          "face_vertical_orientation",
+                          "body_distance",
+                          "body_arm_swing",
+                          "body_swing",
+                          "body_tension"]
+
 class SocketClient(object):
     def __int__(self):
         pass
@@ -19,15 +32,11 @@ class SocketClient(object):
         return
 
     def _pack_image_data(self, image_data, infos):
-        image_code = base64.b64encode(image_data).decode('utf-8')
-        packed_data = {
-            "type": "",
-            "time": "",
-            "length": ""
-        }
-        # for k, v in infos.items():
-        #     packed_data[k] = str(v)
-        # print(packed_data)
+        image_code = base64.b64encode(image_data).decode()
+        packed_data = {}
+        for attr in VisionAttr:
+            packed_data[attr] = str(infos.get(attr, ""))
+        print(packed_data)
         packed_data["data"] = image_code
         return json.dumps(packed_data)
 
