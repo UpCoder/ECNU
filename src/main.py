@@ -48,7 +48,7 @@ if __name__ == '__main__':
         k = cv2.waitKey(1)
 
         print('Single frame cost:', time.time() - start_time)
-        print('######'*5)
+        # print('######'*5)
         if k == ord('q'):
             break
 
