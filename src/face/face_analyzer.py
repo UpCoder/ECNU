@@ -88,21 +88,21 @@ class FaceAnalyzer(object):
         if self.landmark_3d is not None:
             infos = landmark_handler(self.landmark_3d, self.width, self.height)
 
-            cv2.putText(image, "Horizontal Ori:{:6.2f} degree".format(infos["H_orient"]), (20, 1*self.text_space),
-                        font, self.text_size, (0, 0, 0), 1, cv2.LINE_AA)
-            cv2.putText(image, "Vertical Ori :{:6.2f} degree".format(infos["V_orient"]), (20, 2*self.text_space),
-                        font, self.text_size, (0, 0, 0), 1, cv2.LINE_AA)
+            # cv2.putText(image, "Horizontal Ori:{:6.2f} degree".format(infos["H_orient"]), (20, 1*self.text_space),
+            #             font, self.text_size, (0, 0, 0), 1, cv2.LINE_AA)
+            # cv2.putText(image, "Vertical Ori :{:6.2f} degree".format(infos["V_orient"]), (20, 2*self.text_space),
+            #             font, self.text_size, (0, 0, 0), 1, cv2.LINE_AA)
+            #
+            # cv2.putText(image, "Horizontal Iris :{:6.2f} ".format(infos["H_iris"]), (20, 4*self.text_space),
+            #             font, self.text_size, (0, 0, 0), 1,  cv2.LINE_AA)
+            # cv2.putText(image, "Vertical Iris :{:6.2f} ".format(infos["V_iris"]), (20, 5*self.text_space),
+            #             font, self.text_size, (0, 0, 0), 1,  cv2.LINE_AA)
 
-            cv2.putText(image, "Horizontal Iris :{:6.2f} ".format(infos["H_iris"]), (20, 4*self.text_space),
+            cv2.putText(image, "Mouth Open :{:6.2f} ".format(infos["mouth_open"]), (20, 1*self.text_space),
                         font, self.text_size, (0, 0, 0), 1,  cv2.LINE_AA)
-            cv2.putText(image, "Vertical Iris :{:6.2f} ".format(infos["V_iris"]), (20, 5*self.text_space),
+            cv2.putText(image, "Left Eye Open :{:6.2f} ".format(infos["left_eye_open"]), (20, 2*self.text_space),
                         font, self.text_size, (0, 0, 0), 1,  cv2.LINE_AA)
-
-            cv2.putText(image, "Mouth Open :{:6.2f} ".format(infos["mouth_open"]), (20, 7*self.text_space),
-                        font, self.text_size, (0, 0, 0), 1,  cv2.LINE_AA)
-            cv2.putText(image, "Left Eye Open :{:6.2f} ".format(infos["left_eye_open"]), (20, 8*self.text_space),
-                        font, self.text_size, (0, 0, 0), 1,  cv2.LINE_AA)
-            cv2.putText(image, "Right Eye Open :{:6.2f} ".format(infos["right_eye_open"]), (20, 9*self.text_space),
+            cv2.putText(image, "Right Eye Open :{:6.2f} ".format(infos["right_eye_open"]), (20, 3*self.text_space),
                         font, self.text_size, (0, 0, 0), 1,  cv2.LINE_AA)
 
         return image, infos

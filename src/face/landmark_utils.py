@@ -90,14 +90,14 @@ def eye_handler(landmark_3d, eye_idxs):
 def landmark_handler(landmark_3d, width, height):
     infos = {}
     rotvec = process_face_landmark(landmark_3d, width, height)
-    infos["H_orient"] = 90*rotvec[1]
-    infos["V_orient"]= -90*rotvec[0]
+    infos["face_horizontal_orientation"] = 90*rotvec[1]
+    infos["face_vertical_orientation"]= -90*rotvec[0]
 
     left_iris, right_iris = iris_position(landmark_3d)
     left_eye, right_eye = eye_position(landmark_3d)
 
-    infos["H_iris"] = left_iris[0] - left_eye[0] + right_iris[0] - right_eye[0]
-    infos["V_iris"] = left_iris[1] - left_eye[1] + right_iris[1] - right_eye[1]
+    infos["face_iris_horizontal"] = left_iris[0] - left_eye[0] + right_iris[0] - right_eye[0]
+    infos["face_iris_vertical"] = left_iris[1] - left_eye[1] + right_iris[1] - right_eye[1]
 
     infos["mouth_open"] = mouth_handler(landmark_3d)
     infos["left_eye_open"] = eye_handler(landmark_3d, FACE_LEFT_EYE)

@@ -1,6 +1,7 @@
 import json
 import os
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import cv2
 import tensorflow as tf
 from tf_bodypix.api import load_model, download_model, BodyPixModelPaths
@@ -223,8 +224,8 @@ def demo():
             image_path.replace('.jpg', 'pose.jpg'),
             image_with_pose
         )
-        print('cost: ', e-s)
-        costs.append(e-s)
+        print('cost: ', e - s)
+        costs.append(e - s)
     print(np.mean(costs))
 
     all_mask = cv2.bitwise_and(image, image, mask=all_mask)
@@ -246,5 +247,5 @@ if __name__ == '__main__':
     #     'C:\\Users\\cs_li\\Documents\\WXWork\\1688854406374298\\Cache\\Video\\2022-10\\3.mp4'
     # )
     pipeline_video_mediapipe_VideoProcessor(
-        'C:\\Users\\cs_li\\Documents\\大五人格访谈视频+简短问卷\\cy.mp4'
+        '/mnt/e/BaiduNetdiskDownload/video/klx.mp4'
     )

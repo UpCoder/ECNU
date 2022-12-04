@@ -6,8 +6,11 @@ from sensor.camera import Camera
 from face.face_analyzer import FaceAnalyzer
 from commu.client import SocketClient
 from body.body_processor import VideoProcessor
+from demo.demo_asr.AudioProcessor import start_pipeline
+
 
 if __name__ == '__main__':
+    start_pipeline('localhost', 8889)
     parser = argparse.ArgumentParser(description='Demo')
     parser.add_argument('--width', type=int, default=640)
     parser.add_argument('--height', type=int, default=480)
@@ -33,14 +36,14 @@ if __name__ == '__main__':
         im_rd = im_row.copy()
         im_rd1 = im_row.copy()
         print(im_rd.shape)
-        # im_rd = im_rd[:480, 150:150+340]
+        im_rd = im_rd[:480, 150:150+340]
         # print(im_rd.shape)
 
         # image = im_rd
         # infos = {}
         image, infos = face.face_infer(im_rd)
         # # print(infos)
-        image, _ = body.processing_frame(im_rd1, image)
+        # image, _ = body.processing_frame(im_rd1, image)
 
         send_time = time.time()
         if args.send_data:

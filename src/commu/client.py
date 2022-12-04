@@ -35,7 +35,7 @@ class SocketClient(object):
         image_code = base64.b64encode(image_data).decode()
         packed_data = {}
         for attr in VisionAttr:
-            packed_data[attr] = str(infos.get(attr, ""))
+            packed_data[attr] = str(infos.get(attr, ""))[:6]
         print(packed_data)
         packed_data["data"] = image_code
         return json.dumps(packed_data)
