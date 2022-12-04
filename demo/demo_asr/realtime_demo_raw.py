@@ -13,11 +13,19 @@ from src.commu.client import SocketClient
 from demo.demo_asr.utils import GlobalStatus
 
 
+class Answer(object):
+    def __init__(self):
+        self.cur_seconds = 0
+        self.cur_answer = ''
+        self.pause_count = 0
+        self.pause_duration_ms = []
+
+
 class AudioASRRecord(object):
     def __init__(self, sample_rate=16000, record_duration=5,
                  n_channels=2, args=None, client=None,
                  stop_interval=5, stop_threshold=3000,
-                 global_status:GlobalStatus=None):
+                 global_status: GlobalStatus=None):
         self.stop_interval = stop_interval
         self.stop_threshold = stop_threshold
         self.appid = "6747655566"    # 项目的 appid
@@ -50,10 +58,12 @@ class AudioASRRecord(object):
         self.start_realtime_recording_thread_obj = None
         self.global_status = global_status
         self.stop_records = []
-        self.question_answers = []
-        self.cur_question_answer = ''
-        self.answer_seconds = []   # 记录历史问题回答的秒数
-        self.cur_seconds = 0    # 记录当前问题回答的秒数
+
+        self.answers = [Answer()]
+        # self.question_answers = []
+        # self.cur_question_answer = ''
+        # self.answer_seconds = []   # 记录历史问题回答的秒数
+        # self.cur_seconds = 0    # 记录当前问题回答的秒数
         if client is None:
             self.socket_client = self.global_status.send_msg_client
         else:
@@ -82,7 +92,8 @@ class AudioASRRecord(object):
             print(f'asr_result: {asr_result}')
             print(asr_result == '')
             self.asrs.append(asr_result)
-            self.cur_question_answer += asr_result
+            self.answers[-1].cur_answer += asr_result
+            # self.cur_question_answer += asr_result
             # TODO send msg
             if asr_result != '':
                 self.socket_client.send_asr_txt('被试：' + asr_result)
@@ -96,18 +107,19 @@ class AudioASRRecord(object):
                 # send next play audio
                 self.global_status.asr_in_listen = False
                 self.global_status.is_stop = False
-                self.question_answers.append(self.cur_question_answer)
+                # self.question_answers.append(self.cur_question_answer)
+
                 print('next quest')
                 next_question_id = self.global_status.questions.get_next_question(
-                    self.global_status.current_question_id, self.cur_question_answer)
-                self.cur_question_answer = ''
+                    self.global_status.current_question_id, self.answers[-1].cur_answer)
+                # self.cur_question_answer = ''
 
-                self.answer_seconds.append(self.cur_seconds)
-                self.cur_seconds = 0
+                # self.answers[-1].cur_seconds.append(self.cur_seconds)
+                # self.cur_seconds = 0
 
                 self.global_status.current_question_id = next_question_id
                 # self.global_status.current_question_id += 1
-
+                self.answers.append(Answer())
                 self.global_status.send_msg_client.send_asr_txt('虚拟人：' + self.global_status.questions.questions[
                     self.global_status.current_question_id].content)
                 time.sleep(0.1)
@@ -123,41 +135,83 @@ class AudioASRRecord(object):
                 # ))
             continue
 
+    def calc_metrics_stop_interval(self, record, stop_duration_threshold_ms):
+        """
+        计算停顿的次数，和每次停顿的时长
+        :param record
+        :param stop_duration_threshold_ms:
+        :return:
+        """
+        print('calc_metrics_stop_interval', record, np.max(record), np.min(record))
+
+        cur_record = np.asarray(np.abs(record), np.int)
+        batch_size = self.fs // 1000  # 代表每ms的数据量
+        is_stop = []
+        for i in range(int(np.shape(cur_record)[0] // batch_size)):
+            print(i * batch_size, (i+1) * batch_size)
+            cur_slice = cur_record[i * batch_size: (i+1) * batch_size, :]
+            print(i * batch_size, (i + 1) * batch_size, np.max(cur_slice), np.min(cur_slice))
+            if np.max(cur_slice) <= self.stop_threshold:
+                is_stop.append(1)
+            else:
+                is_stop.append(0)
+        print('is_stop length: ', len(is_stop))
+        cur_count_stop = 0
+        record_stop_durations_ms = []
+        for cur_is_stop in is_stop:
+            if cur_is_stop == 0:
+                record_stop_durations_ms.append(cur_count_stop)
+                cur_count_stop = 0
+            elif cur_is_stop == 1:
+                cur_count_stop += 1
+        if cur_count_stop != 0:
+            record_stop_durations_ms.append(cur_count_stop)
+        record_stop_durations_ms = list(filter(lambda x: x > stop_duration_threshold_ms,
+                                               record_stop_durations_ms))
+        print('record_stop_durations_ms: ', record_stop_durations_ms)
+        return len(record_stop_durations_ms), record_stop_durations_ms
+
+
     def calc_metrics(self):
         """
         计算相关指标
         :return:
         """
         # 计算响度
-        batch_size = self.answer_seconds[-1] // self.seconds
+        batch_size = self.answers[-2].cur_seconds // self.seconds
         data = self.stop_records[len(self.stop_records) - batch_size:]
+        # data = [self.stop_records[-1]]
         loudness = []
+        # 计算高音pitch
+        speech_pitch = -np.inf
+        speech_pause_count = 0
+        speech_pause_duration_ms = []
         for single_record in data:
             # print(single_record[np.where(single_record['record'] >= 0)])
             loudness.append(np.mean(single_record['record']))
-
+            speech_pitch = max(speech_pitch, np.max(single_record['record']))
+            # 计算停顿次数
+            speech_pause_count_, speech_pause_duration_ms_ = self.calc_metrics_stop_interval(
+                single_record['record'], 300)
+            speech_pause_count += speech_pause_count_
+            speech_pause_duration_ms.extend(speech_pause_duration_ms_)
         # 计算语速
-        speech_speed = len(self.question_answers[-1]) / (self.answer_seconds[-1] * 60)
+        speech_speed = len(self.answers[-2].cur_answer) / (self.answers[-2].cur_seconds * 60)
 
         # 计算说话时长
-        speech_length = self.answer_seconds[-1]
+        speech_length = self.answers[-2].cur_seconds
 
         # 计算音调变化
         speech_tone = ''
 
-        # 计算停顿次数
-        speech_pause_count = 0
-
-        # 计算高音pitch
-        speech_pitch = 0
-
         return {
-            'speech_tone': str(speech_tone),
-            'speech_pause_count': str(speech_pause_count),
-            'speech_loudness': '{:.5f}'.format(np.mean(loudness)),
-            'speech_speed': str(speech_speed),
-            'speech_pitch': str(speech_pitch),
-            'speech_length': str(speech_length)
+            'speech_tone': str(speech_tone),    # 音调变化
+            'speech_pause_count': str(speech_pause_count),  # 停顿次数
+            'speech_loudness': '{:.5f}'.format(np.mean(loudness)),  # 平均响度
+            'speech_speed': str(speech_speed),  # 语速
+            'speech_pitch': str(speech_pitch),  # 高音pitch
+            'speech_length': str(speech_length),    # 回答问题的时长
+            'speech_pause_duration_sum': np.sum(speech_pause_duration_ms)   # 停顿的总时长
         }
 
 
@@ -191,7 +245,8 @@ class AudioASRRecord(object):
             sd.wait()
             max_record = np.max(myrecording)
             min_record = np.min(myrecording)
-            self.cur_seconds += self.seconds
+            # self.cur_seconds += self.seconds
+            self.answers[-1].cur_seconds += self.seconds
             print(f'end rec max_record: {type(myrecording)} {np.shape(myrecording)} {max_record} {min_record}')
             self.stop_records.append({
                 'record': myrecording,
@@ -259,6 +314,7 @@ class AudioASRRecord(object):
                 'min': min_record
             })
             print('finish record...')
+            self.cur_seconds += self.seconds
             # wave_binrary = myrecording.tobytes()
             self.records.append(myrecording)
             if self.is_stop():
@@ -287,6 +343,10 @@ class AudioASRRecord(object):
             print(asr_result == '')
             self.asrs.append(asr_result)
             self.cur_question_answer += asr_result
+            self.answer_seconds.append(self.cur_seconds)
+            self.cur_seconds = 0
+            self.question_answers.append(self.cur_question_answer)
+            print('metrics: ', self.calc_metrics())
             continue
 
     def is_stop(self):
