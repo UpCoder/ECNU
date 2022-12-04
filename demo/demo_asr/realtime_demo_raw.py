@@ -8,9 +8,9 @@ import multiprocessing
 import time
 import sounddevice as sd
 import numpy as np
-from zijie.release_interface import get_client
+from demo.demo_asr.zijie.release_interface import get_client
 from src.commu.client import SocketClient
-from utils import GlobalStatus
+from demo.demo_asr.utils import GlobalStatus
 
 
 class Answer(object):
@@ -97,6 +97,12 @@ class AudioASRRecord(object):
             # TODO send msg
             if asr_result != '':
                 self.socket_client.send_asr_txt('被试：' + asr_result)
+                # self.global_status.send_msg_client.send_message(json.dumps(
+                #     {
+                #         "dialogue": str('被试：' + asr_result),
+                #         **self.calc_metrics()
+                #     },
+                # ))
             if self.global_status.is_stop:
                 # send next play audio
                 self.global_status.asr_in_listen = False
@@ -118,13 +124,15 @@ class AudioASRRecord(object):
                     self.global_status.current_question_id].content)
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(
-                    {"order": str(self.global_status.current_question_id)}
+                    {
+                        "order": str(self.global_status.current_question_id),
+                        **self.calc_metrics()
+                    },
                 ))
-                time.sleep(0.1)
-                self.global_status.send_msg_client.send_message(json.dumps(
-                    self.calc_metrics()
-                ))
-
+                # time.sleep(0.1)
+                # self.global_status.send_msg_client.send_message(json.dumps(
+                #     self.calc_metrics()
+                # ))
             continue
 
     def calc_metrics_stop_interval(self, record, stop_duration_threshold_ms):

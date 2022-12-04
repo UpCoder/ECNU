@@ -3,8 +3,8 @@ import time
 import sounddevice as sd
 import numpy as np
 import threading
-from zijie.release_interface import get_client
-from utils import GlobalStatus
+from demo.demo_asr.zijie.release_interface import get_client
+from demo.demo_asr.utils import GlobalStatus
 appid = "6747655566"    # 项目的 appid
 token = "M_3Swzuc6aTtP90HE6VHQ58NmBdF_6Rl"    # 项目的 token
 cluster = "volcengine_streaming_common"  # 请求的集群
