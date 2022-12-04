@@ -132,7 +132,11 @@ class BodyProcessor(object):
     def __init__(self, window_size=16):
         self.key_point_names = [
             'LEFT_SHOULDER',
-            'RIGHT_SHOULDER'
+            'RIGHT_SHOULDER',
+            'LEFT_ELBOW',   # 肘部
+            'RIGHT_ELBOW',  # 肘部
+            'LEFT_WRIST',   # 手腕
+            'RIGHT_WRIST'   # 手腕
         ]
         self.cur_body_info = {
             'x': 0,
@@ -209,7 +213,7 @@ class VideoProcessor(object):
         self.count_idx = 0
         self.calc_frame_interval = calc_frame_interval
 
-    def processing_frame(self, frame_image, annotation_image):
+    def processing_frame(self, frame_image, annotation_image, info=False):
         if self.count_idx % self.calc_frame_interval == 0:
             refuse = False
         else:
@@ -235,7 +239,12 @@ class VideoProcessor(object):
             f'Right Hand Left/Right: {rh_lr_str}',
             f'Right Hand Up/Down: {rh_ud_str}'
         ], self.txt_loc, self.line_width)
-        return annotation_image, annotation_image_txt
+        body_hand_metrics = {}
+        if info:
+            pass
+        else:
+            pass
+        return annotation_image, annotation_image_txt, body_hand_metrics
 
     def put_txts(self, frame, txts, start_loc, line_width, font=cv2.FONT_HERSHEY_SIMPLEX):
         for idx, txt in enumerate(txts):

@@ -24,7 +24,7 @@ if __name__ == '__main__':
     camera.set_size(args.width, args.height)
 
     face = FaceAnalyzer(args.width, args.height)
-    body = VideoProcessor()
+    body = VideoProcessor(calc_frame_interval=10000000000)
 
     socket_client = SocketClient()
     socket_client.connet(host=args.host, port=args.port)
@@ -33,18 +33,22 @@ if __name__ == '__main__':
         start_time = time.time()
         ret_flag, im_row = camera.video_capure.read()
         print('camera caption cost:', time.time() - start_time)
+        im_row = im_row[:480, 150:150 + 340]
+
         im_rd = im_row.copy()
         im_rd1 = im_row.copy()
         print(im_rd.shape)
-        im_rd = im_rd[:480, 150:150+340]
         # print(im_rd.shape)
 
         # image = im_rd
         # infos = {}
         image, infos = face.face_infer(im_rd)
         # # print(infos)
-        # image, _ = body.processing_frame(im_rd1, image)
-
+        image, _, body_info = body.processing_frame(im_rd1, image, need_info=True)
+        infos = {
+            **infos,
+            **body_info
+        }
         send_time = time.time()
         if args.send_data:
             socket_client.send_image(image, infos)

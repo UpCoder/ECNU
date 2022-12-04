@@ -148,9 +148,9 @@ class AudioASRRecord(object):
         batch_size = self.fs // 1000  # 代表每ms的数据量
         is_stop = []
         for i in range(int(np.shape(cur_record)[0] // batch_size)):
-            print(i * batch_size, (i+1) * batch_size)
+            # print(i * batch_size, (i+1) * batch_size)
             cur_slice = cur_record[i * batch_size: (i+1) * batch_size, :]
-            print(i * batch_size, (i + 1) * batch_size, np.max(cur_slice), np.min(cur_slice))
+            # print(i * batch_size, (i + 1) * batch_size, np.max(cur_slice), np.min(cur_slice))
             if np.max(cur_slice) <= self.stop_threshold:
                 is_stop.append(1)
             else:
@@ -203,16 +203,17 @@ class AudioASRRecord(object):
 
         # 计算音调变化
         speech_tone = ''
-
-        return {
+        metric_dict = {
             'speech_tone': str(speech_tone),    # 音调变化
-            'speech_pause_count': str(speech_pause_count),  # 停顿次数
+            # 'speech_pause': str(speech_pause_count),  # 停顿次数
             'speech_loudness': '{:.5f}'.format(np.mean(loudness)),  # 平均响度
             'speech_speed': str(speech_speed),  # 语速
             'speech_pitch': str(speech_pitch),  # 高音pitch
             'speech_length': str(speech_length),    # 回答问题的时长
-            'speech_pause_duration_sum': np.sum(speech_pause_duration_ms)   # 停顿的总时长
+            # 'speech_pause_duration': '{:.5f}'.format(np.sum(speech_pause_duration_ms))   # 停顿的总时长
         }
+        print(f'metrics: {metric_dict}')
+        return metric_dict
 
 
 
