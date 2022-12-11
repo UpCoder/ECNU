@@ -96,8 +96,8 @@ def landmark_handler(landmark_3d, width, height):
     left_iris, right_iris = iris_position(landmark_3d)
     left_eye, right_eye = eye_position(landmark_3d)
 
-    infos["face_iris_horizontal"] = left_iris[0] - left_eye[0] + right_iris[0] - right_eye[0]
-    infos["face_iris_vertical"] = left_iris[1] - left_eye[1] + right_iris[1] - right_eye[1]
+    infos["face_iris_vertical"] = left_iris[0] - left_eye[0] + right_iris[0] - right_eye[0]
+    infos["face_iris_horizontal"] = left_iris[1] - left_eye[1] + right_iris[1] - right_eye[1]
 
     infos["mouth_open"] = mouth_handler(landmark_3d)
     infos["left_eye_open"] = eye_handler(landmark_3d, FACE_LEFT_EYE)

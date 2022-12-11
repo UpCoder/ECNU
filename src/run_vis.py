@@ -42,19 +42,22 @@ if __name__ == '__main__':
 
         # image = im_rd
         # infos = {}
-        image, infos = face.face_infer(im_rd)
+        image, infos = face.face_infer(im_row, im_rd)
         # # print(infos)
         image, _, body_info = body.processing_frame(im_rd1, image, need_info=True)
         infos = {
             **infos,
             **body_info
         }
+
+        image = cv2.flip(image, 1)
+
         send_time = time.time()
         if args.send_data:
             socket_client.send_image(image, infos)
         print('send_data cost:', time.time() - send_time)
 
-        # cv2.imshow("demo", image)
+        cv2.imshow("demo", image)
         k = cv2.waitKey(1)
 
         print('Single frame cost:', time.time() - start_time)
