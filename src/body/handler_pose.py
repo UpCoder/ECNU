@@ -6,11 +6,13 @@ mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
     static_image_mode=False,
-    model_complexity=0,
+    model_complexity=2,
     enable_segmentation=False,
-    min_detection_confidence=0.5)
+    min_detection_confidence=0.4)
 BG_COLOR = [255, 255, 255]
-
+class NormalizedLandmarkListSelf(object):
+    def __init__(self):
+        self.landmark = None
 
 def processing_frame(frame, annotation_image,
                      coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER'],
@@ -56,9 +58,20 @@ def processing_frame(frame, annotation_image,
             bg_image[:] = BG_COLOR
             annotation_image = np.where(condition, annotation_image, bg_image)
         # Draw pose landmarks on the image.
+        # from mediapipe.framework.formats.landmark_pb2 import NormalizedLandmarkList
+        mark_list = NormalizedLandmarkListSelf()
+        mark_list.landmark = [
+            results.pose_landmarks.landmark[mp_pose.PoseLandmark.__getitem__(coord_name)]
+            for coord_name in coord_names
+        ]
+        # for ele in results.pose_landmarks:
+        #     print(f'ele: {ele}', type(ele))
+        # print('results.pose_landmarks: ', type(results.pose_landmarks), results.pose_landmarks)
+        # print('mark_list: ', type(mark_list), mark_list)
         mp_drawing.draw_landmarks(
             annotation_image,
-            results.pose_landmarks,
+            # results.pose_landmarks,
+            mark_list,
             mp_pose.POSE_CONNECTIONS if connections is None else connections,
             landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style())
     return annotation_image, coord_points, results

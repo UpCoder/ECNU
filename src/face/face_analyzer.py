@@ -2,9 +2,10 @@ import cv2
 import time
 import numpy as np
 import mediapipe as mp
+import threading
 
 from face.landmark_utils import landmark_handler
-# from face.expression_model.model import FacialExpressionModel
+from face.expression_model.model import FacialExpressionModel
 from face.head_nod import NodDetecter
 
 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -15,17 +16,21 @@ class FaceAnalyzer(object):
         self.width = width
         self.height = height
         self.has_face = False
+        self.image = None
+        self.infos = {}
+
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_drawing_styles = mp.solutions.drawing_styles
         self.mp_face_mesh = mp.solutions.face_mesh
         # drawing_spec = self.mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
+
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             max_num_faces=1,
             refine_landmarks=True,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5)
-        # self.expression_model = FacialExpressionModel("./face/expression_model/model.json",
-        #                                               "./face/expression_model/model_weights.h5")
+        self.expression_model = FacialExpressionModel("./face/expression_model/model.json",
+                                                      "./face/expression_model/model_weights.h5")
 
         self.text_size = 0.6
         self.text_space = 20
@@ -60,7 +65,7 @@ class FaceAnalyzer(object):
 
     def draw_face(self, image):
         if not self.has_face:
-            return
+            return image
         # FaceMesh
         self.mp_drawing.draw_landmarks(
             image=image,
@@ -86,6 +91,7 @@ class FaceAnalyzer(object):
             landmark_drawing_spec=None,
             connection_drawing_spec=self.mp_drawing_styles
             .get_default_face_mesh_iris_connections_style())
+        return image
 
 
     def face_rect_by_landmark(self, face_landmarks):
@@ -114,12 +120,13 @@ class FaceAnalyzer(object):
                     font, self.text_size, (0, 0, 0), 1, cv2.LINE_AA)
         return
 
-    def face_infer(self, raw_image, draw_image):
+    def face_infer(self):
         try:
             start_time = time.time()
-            self.set_size(raw_image.shape[0], raw_image.shape[1])
+            raw_image = self.image
+            self.set_size(raw_image.shape[1], raw_image.shape[0])
             self.text_cnt = 0
-            infos = {}
+            self.infos = {}
 
             raw_image.flags.writeable = False
             raw_image = cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB)
@@ -132,13 +139,13 @@ class FaceAnalyzer(object):
                 self.has_face = True
                 self.face_landmarks = results.multi_face_landmarks[0]
                 self.landmark_3d = self.process_landmark(self.face_landmarks, self.width, self.height)
-                infos = landmark_handler(self.landmark_3d, self.width, self.height)
+                self.infos = landmark_handler(self.landmark_3d, self.width, self.height)
 
-                self.nod_detecter.update(infos["face_vertical_orientation"])
+                self.nod_detecter.update(self.infos["face_vertical_orientation"])
                 if self.nod_detecter.detect():
                     self.nod_cnt += 1
                     self.nod_detecter.clear()
-                    infos['face_nod_count'] = self.nod_cnt
+                    self.infos['face_nod_count'] = self.nod_cnt
 
                 expression_start_time = time.time()
                 face_rect = self.face_rect_by_landmark(self.landmark_3d)
@@ -154,9 +161,9 @@ class FaceAnalyzer(object):
                 elif pred == 'Angry' or pred == 'Sad':
                     self.frown_score = score
 
-                infos['face_expression'] = self.expression
-                infos['face_smile'] = self.smile_score
-                infos['face_frown'] = self.frown_score
+                self.infos['face_expression'] = self.expression
+                self.infos['face_smile'] = self.smile_score
+                self.infos['face_frown'] = self.frown_score
                 print("expression:{}  time:{}".format(pred, time.time()-expression_start_time))
 
                 # self._put_text(draw_image, "expression", pred)
@@ -165,16 +172,25 @@ class FaceAnalyzer(object):
                 # self._put_text(draw_image, "Mouth Open", "{:4.2f}".format(infos["mouth_open"]))
                 # self._put_text(draw_image, "Left Eye Open", "{:4.2f}".format(infos["left_eye_open"]))
                 # self._put_text(draw_image, "Right Eye Open", "{:4.2f}".format(infos["right_eye_open"]))
+                # self._put_text(draw_image, "H_orient", "{:4.2f}".format(infos["H_orient"]))
+                # self._put_text(draw_image, "V_orient", "{:4.2f}".format(infos["V_orient"]))
                 # self._put_text(draw_image, "Nod", str(self.nod_cnt))
 
             else:
                 self.has_face = False
 
-            self.draw_face(draw_image)
+            # self.draw_face(draw_image)
             # image = cv2.flip(image, 1)
             print('mesh_time:', time.time() - start_time)
         except Exception as e:
             print('Error:', str(e))
-            return raw_image, {}
+            return
+        return
 
-        return draw_image, infos
+    def start(self, image):
+        self.image = image
+        self.face_thread = threading.Thread(target=self.face_infer, args=())
+        self.face_thread.start()
+
+    def wait(self):
+        self.face_thread.join()

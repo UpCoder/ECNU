@@ -32,22 +32,27 @@ if __name__ == '__main__':
     while camera.video_capure.isOpened():
         start_time = time.time()
         ret_flag, im_row = camera.video_capure.read()
+        # im_row = cv2.imread('demo.jpg')
         print('camera caption cost:', time.time() - start_time)
         im_row = im_row[:480, 150:150 + 340]
 
         im_rd = im_row.copy()
         im_rd1 = im_row.copy()
         print(im_rd.shape)
-        # print(im_rd.shape)
 
-        # image = im_rd
-        # infos = {}
-        image, infos = face.face_infer(im_row, im_rd)
-        # # print(infos)
-        image, _, body_info = body.processing_frame(im_rd1, image, need_info=True)
+        face.start(im_rd)
+        image, _, body_info = body.processing_frame(im_rd1, im_rd1, need_info=True)
+        # body.start_processing_frame_thread(im_rd1, im_rd1, True)
+
+        face.wait()
+        # body.wait_processing_frame_thread()
+        # image = body.processing_frame_result['annotation_image']
+        face.draw_face(image)
+
         infos = {
-            **infos,
+            **face.infos,
             **body_info
+            # **body.processing_frame_result['metrics']
         }
 
         image = cv2.flip(image, 1)

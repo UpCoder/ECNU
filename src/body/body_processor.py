@@ -1,3 +1,5 @@
+import threading
+
 import cv2
 import time
 import numpy as np
@@ -190,16 +192,16 @@ class BodyInfoSingle(object):
             'y': np.mean([coord_info['RIGHT_SHOULDER']['y'] for coord_info in coords]),
             'z': np.mean([coord_info['RIGHT_SHOULDER']['z'] for coord_info in coords]),
         }
-        obj.left_wrist_coord = {
-            'x': np.mean([coord_info['LEFT_WRIST']['x'] for coord_info in coords]),
-            'y': np.mean([coord_info['LEFT_WRIST']['y'] for coord_info in coords]),
-            'z': np.mean([coord_info['LEFT_WRIST']['z'] for coord_info in coords]),
-        }
-        obj.right_wrist_coord = {
-            'x': np.mean([coord_info['RIGHT_WRIST']['x'] for coord_info in coords]),
-            'y': np.mean([coord_info['RIGHT_WRIST']['y'] for coord_info in coords]),
-            'z': np.mean([coord_info['RIGHT_WRIST']['z'] for coord_info in coords]),
-        }
+        # obj.left_wrist_coord = {
+        #     'x': np.mean([coord_info['LEFT_WRIST']['x'] for coord_info in coords]),
+        #     'y': np.mean([coord_info['LEFT_WRIST']['y'] for coord_info in coords]),
+        #     'z': np.mean([coord_info['LEFT_WRIST']['z'] for coord_info in coords]),
+        # }
+        # obj.right_wrist_coord = {
+        #     'x': np.mean([coord_info['RIGHT_WRIST']['x'] for coord_info in coords]),
+        #     'y': np.mean([coord_info['RIGHT_WRIST']['y'] for coord_info in coords]),
+        #     'z': np.mean([coord_info['RIGHT_WRIST']['z'] for coord_info in coords]),
+        # }
         obj.left_elbow_coord = {
             'x': np.mean([coord_info['LEFT_ELBOW']['x'] for coord_info in coords]),
             'y': np.mean([coord_info['LEFT_ELBOW']['y'] for coord_info in coords]),
@@ -216,14 +218,14 @@ class BodyInfoSingle(object):
             'z': np.mean([obj.left_shoulder_coord['z'], obj.right_shoulder_coord['z']]),
         }
         obj.left_arm_coord = {
-            'x': np.mean([obj.left_wrist_coord['x'], obj.left_elbow_coord['x']]),
-            'y': np.mean([obj.left_wrist_coord['y'], obj.left_elbow_coord['y']]),
-            'z': np.mean([obj.left_wrist_coord['z'], obj.left_elbow_coord['z']]),
+            'x': np.mean([obj.left_shoulder_coord['x'], obj.left_elbow_coord['x']]),
+            'y': np.mean([obj.left_shoulder_coord['y'], obj.left_elbow_coord['y']]),
+            'z': np.mean([obj.left_shoulder_coord['z'], obj.left_elbow_coord['z']]),
         }
         obj.right_arm_coord = {
-            'x': np.mean([obj.right_wrist_coord['x'], obj.right_elbow_coord['x']]),
-            'y': np.mean([obj.right_wrist_coord['y'], obj.right_elbow_coord['y']]),
-            'z': np.mean([obj.right_wrist_coord['z'], obj.right_elbow_coord['z']]),
+            'x': np.mean([obj.right_shoulder_coord['x'], obj.right_elbow_coord['x']]),
+            'y': np.mean([obj.right_shoulder_coord['y'], obj.right_elbow_coord['y']]),
+            'z': np.mean([obj.right_shoulder_coord['z'], obj.right_elbow_coord['z']]),
         }
         return obj
 
@@ -361,9 +363,12 @@ class BodyProcessor(object):
         ]
         self.key_point_connections = frozenset(
             [
-                (11, 12),
-                (11, 13), (13, 15),
-                (12, 14), (14, 16)
+                # (11, 12),
+                # (11, 13), (13, 15),
+                # (12, 14), (14, 16)
+                (0, 1),
+                (0, 2), (2, 4),
+                (1, 3), (3, 5)
             ]
         )
         self.cur_body_info = {
@@ -452,6 +457,17 @@ class VideoProcessor(object):
         self.line_width = line_width
         self.count_idx = 0
         self.calc_frame_interval = calc_frame_interval
+        self.processing_frame_result = None
+        self.processing_frame_thread = None
+
+    def start_processing_frame_thread(self, frame_image, annotation_image, need_info=False):
+        self.processing_frame_thread = threading.Thread(target=self.processing_frame, args=(frame_image, annotation_image, need_info))
+        self.processing_frame_thread.start()
+
+
+    def wait_processing_frame_thread(self):
+        if self.processing_frame_thread is not None:
+            self.processing_frame_thread.join()
 
     def processing_frame(self, frame_image, annotation_image, need_info=False):
         if self.count_idx % self.calc_frame_interval == 0:
@@ -495,6 +511,11 @@ class VideoProcessor(object):
             }
         else:
             pass
+        self.processing_frame_result = {
+            'annotation_image': annotation_image,
+            'annotation_image_txt': annotation_image_txt,
+            'metrics': body_hand_metrics
+        }
         return annotation_image, annotation_image_txt, body_hand_metrics
 
     def put_txts(self, frame, txts, start_loc, line_width, font=cv2.FONT_HERSHEY_SIMPLEX):
