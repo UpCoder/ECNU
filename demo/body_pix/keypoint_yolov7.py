@@ -12,7 +12,46 @@ from multiprocessing import Process, Queue
 import os, time, random
 
 
-def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f'device: {device}')
+weigths = torch.load('yolov7-w6-pose.pt', map_location=device)
+model = weigths['model']
+_ = model.float().eval()
+
+if torch.cuda.is_available():
+    model.half().to(device)
+    # model.to(device)
+
+
+def processing_pose_frame(frame, annotation_image, key_point_name, connections):
+    # image = letterbox(frame, 960, stride=64, auto=True)[0]
+    origin_shape = np.shape(frame)[:2]
+    image = cv2.resize(frame, (640, 640))
+    image = transforms.ToTensor()(image)
+    image = torch.tensor(np.array([image.numpy()]))
+
+    if torch.cuda.is_available():
+        image = image.half().to(device)
+    output, _ = model(image)
+
+    output = non_max_suppression_kpt(output, 0.25, 0.65, nc=1, nkpt=17, kpt_label=True)
+    with torch.no_grad():
+        output = output_to_keypoint(output)
+    nimg = image[0].permute(1, 2, 0) * 255
+    nimg = nimg.cpu().numpy().astype(np.uint8)
+    nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
+    for idx in range(output.shape[0]):
+        plot_skeleton_kpts(nimg, output[idx, 7:].T, 3, np.shape(nimg))
+    nimg = cv2.resize(nimg, origin_shape)
+    return nimg[:, :, ::-1], None, None
+
+
+def plot_skeleton_kpts(im, kpts, steps, orig_shape=None, draw_keypoints=['left_shoulder',
+        'right_shoulder',
+        'left_elbow',
+        'right_elbow',
+        'left_wrist',
+        'right_wrist']):
     #Plot the skeleton and keypointsfor coco datatset
     palette = np.array([[255, 128, 0], [255, 153, 51], [255, 178, 102],
                         [230, 230, 0], [255, 153, 255], [153, 204, 255],
@@ -21,10 +60,33 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
                         [255, 51, 51], [153, 255, 153], [102, 255, 102],
                         [51, 255, 51], [0, 255, 0], [0, 0, 255], [255, 0, 0],
                         [255, 255, 255]])
+    key_names = [
+        'nose',
+        'left_eye',
+        'right_eye',
+        'left_ear',
+        'right_ear',
+        'left_shoulder',
+        'right_shoulder',
+        'left_elbow',
+        'right_elbow',
+        'left_wrist',
+        'right_wrist',
+        'left_hip',
+        'right_hip',
+        'left_knee',
+        'right_knee',
+        'left_ankle',
+        'right_ankle'
+    ]
+    # 1-‘nose’ 2-‘left_eye’ 3-‘right_eye’ 4-‘left_ear’ 5-‘right_ear’ 6-‘left_shoulder’ 7-‘right_shoulder’
+    # 8-‘left_elbow’ -‘right_elbow’ 10-‘left_wrist’ 11-‘right_wrist’ 12-‘left_hip’ 13-‘right_hip’ 14-‘left_knee’
+    # 15-‘right_knee’ 16-‘left_ankle’ 17-‘right_ankle’
 
     skeleton = [[16, 14], [14, 12], [17, 15], [15, 13], [12, 13], [6, 12],
                 [7, 13], [6, 7], [6, 8], [7, 9], [8, 10], [9, 11], [2, 3],
                 [1, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7]]
+
 
     pose_limb_color = palette[[9, 9, 9, 9, 7, 7, 7, 0, 0, 0, 0, 0, 16, 16, 16, 16, 16, 16, 16]]
     pose_kpt_color = palette[[16, 16, 16, 16, 16, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9]]
@@ -32,6 +94,8 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
     num_kpts = len(kpts) // steps
 
     for kid in range(num_kpts):
+        if key_names[kid - 1] not in draw_keypoints:
+            continue
         r, g, b = pose_kpt_color[kid]
         x_coord, y_coord = kpts[steps * kid], kpts[steps * kid + 1]
         if not (x_coord % 640 == 0 or y_coord % 640 == 0):
@@ -43,16 +107,19 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
 
     for sk_id, sk in enumerate(skeleton):
         r, g, b = pose_limb_color[sk_id]
+        print(sk_id, sk, len(key_names))
+        if key_names[sk[0] - 1] not in draw_keypoints or key_names[sk[1] - 1] not in draw_keypoints:
+            continue
         pos1 = (int(kpts[(sk[0]-1)*steps]), int(kpts[(sk[0]-1)*steps+1]))
         pos2 = (int(kpts[(sk[1]-1)*steps]), int(kpts[(sk[1]-1)*steps+1]))
         if steps == 3:
             conf1 = kpts[(sk[0]-1)*steps+2]
             conf2 = kpts[(sk[1]-1)*steps+2]
-            if conf1<0.5 or conf2<0.5:
+            if conf1 < 0.5 or conf2 < 0.5:
                 continue
-        if pos1[0]%640 == 0 or pos1[1]%640==0 or pos1[0]<0 or pos1[1]<0:
+        if pos1[0] % orig_shape[0] == 0 or pos1[1] % orig_shape[1] == 0 or pos1[0] < 0 or pos1[1] < 0:
             continue
-        if pos2[0] % 640 == 0 or pos2[1] % 640 == 0 or pos2[0]<0 or pos2[1]<0:
+        if pos2[0] % orig_shape[0] == 0 or pos2[1] % orig_shape[1] == 0 or pos2[0] < 0 or pos2[1] < 0:
             continue
         cv2.line(im, pos1, pos2, (int(r), int(g), int(b)), thickness=2)
 
@@ -167,8 +234,10 @@ def non_max_suppression_kpt(prediction, conf_thres=0.25, iou_thres=0.45, classes
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
     if nc is None:
-        nc = prediction.shape[2] - 5  if not kpt_label else prediction.shape[2] - 56 # number of classes
-    xc = prediction[..., 4] > conf_thres  # candidates
+        nc = prediction.shape[2] - 5 if not kpt_label else prediction.shape[2] - 56 # number of classes
+    print(prediction.shape)
+    # xc = prediction[..., 4] > conf_thres  # candidates
+    xc = prediction[:, :, 4] > conf_thres
 
     # Settings
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
@@ -180,7 +249,7 @@ def non_max_suppression_kpt(prediction, conf_thres=0.25, iou_thres=0.45, classes
     merge = False  # use merge-NMS
 
     t = time.time()
-    output = [torch.zeros((0,6), device=prediction.device)] * prediction.shape[0]
+    output = [torch.zeros((0, 6), device=prediction.device)] * prediction.shape[0]
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
@@ -200,7 +269,9 @@ def non_max_suppression_kpt(prediction, conf_thres=0.25, iou_thres=0.45, classes
             continue
 
         # Compute conf
-        x[:, 5:5+nc] *= x[:, 4:5]  # conf = obj_conf * cls_conf
+        # a = x[:, 5:5+nc]
+        # b = x[:, 4:5]
+        # x[:, 5:5+nc] = a * b  # conf = obj_conf * cls_conf
 
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])
@@ -296,8 +367,8 @@ class Camera(threading.Thread):
         self.camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         self.Flag = 0
         self.count = 1
-        self.width = 1920
-        self.heigth = 1080
+        self.width = 480
+        self.heigth = 340
         self.name = ''
         self.path = ''
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
@@ -335,40 +406,31 @@ class Camera(threading.Thread):
     def set_path(self, str):
         self.path = str
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-weigths = torch.load('yolov7-w6-pose.pt', map_location=device)
-model = weigths['model']
-_ = model.float().eval()
-
-if torch.cuda.is_available():
-    model.half().to(device)
-
 
 def show_window(cap):
     while True:
         cv2.namedWindow("window", 1)  # 1代表外置摄像头
         cv2.resizeWindow("window", cap.width, cap.heigth)  # 指定显示窗口大小
         image = cap.frame
-        image = letterbox(image, 960, stride=64, auto=True)[0]
-        image_ = image.copy()
-        image = transforms.ToTensor()(image)
-        image = torch.tensor(np.array([image.numpy()]))
-
-        if torch.cuda.is_available():
-            image = image.half().to(device)
-        output, _ = model(image)
-
-        output = non_max_suppression_kpt(output, 0.25, 0.65, nc=model.yaml['nc'], nkpt=model.yaml['nkpt'],
-                                         kpt_label=True)
-        with torch.no_grad():
-            output = output_to_keypoint(output)
-        nimg = image[0].permute(1, 2, 0) * 255
-        nimg = nimg.cpu().numpy().astype(np.uint8)
-        nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
-        for idx in range(output.shape[0]):
-            plot_skeleton_kpts(nimg, output[idx, 7:].T, 3)
-
-
+        # image = letterbox(image, (512, 320), stride=64, auto=True)[0]
+        # image = transforms.ToTensor()(image)
+        # image = torch.tensor(np.array([image.numpy()]))
+        #
+        # if torch.cuda.is_available():
+        #     image = image.half().to(device)
+        # output, _ = model(image)
+        #
+        # output = non_max_suppression_kpt(output, 0.25, 0.65, nc=model.yaml['nc'], nkpt=model.yaml['nkpt'],
+        #                                  kpt_label=True)
+        # with torch.no_grad():
+        #     output = output_to_keypoint(output)
+        # nimg = image[0].permute(1, 2, 0) * 255
+        # nimg = nimg.cpu().numpy().astype(np.uint8)
+        # nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
+        # for idx in range(output.shape[0]):
+        #     plot_skeleton_kpts(nimg, output[idx, 7:].T, 3, nimg.shape)
+        #
+        nimg, _, _ = processing_pose_frame(cap.frame, None, None, None)
         # cv2.imshow('window', cap.frame)
         cv2.imshow('window', nimg)
         c = cv2.waitKey(50)  # 按ESC退出画面
@@ -380,15 +442,25 @@ def show_window(cap):
 if __name__ == '__main__':
     cap = Camera()
     cap.start()
-    while True:
-        i = int(input("input:"))
-        if i == 1:
-            cap.take_photo()
-        if i == 2:
-            cap.exit_program()
-        if i == 3:
-            recv_data_thread = threading.Thread(target=show_window, args=(cap,))
-            recv_data_thread.start()
-        time.sleep(1)
+    time.sleep(5)
+    # from tqdm import tqdm
+    # for idx in tqdm(range(10000)):
+    #     image = cap.frame
+    #     image = letterbox(image, 960, stride=64, auto=True)[0]
+    #     image_ = image.copy()
+    #     image = transforms.ToTensor()(image)
+    #     image = torch.tensor(np.array([image.numpy()]))
+    #
+    #     if torch.cuda.is_available():
+    #         image = image.half().to(device)
+    #     output, _ = model(image)
+    #     print('nc: ', model.yaml['nc'])
+    #     print('nkpt: ', model.yaml['nkpt'])
+    #     output = non_max_suppression_kpt(output, 0.25, 0.65, nc=1, nkpt=17,
+    #                                      kpt_label=True)
+    print('show window start')
+    thread = threading.Thread(target=show_window, args=(cap, ))
+    thread.start()
+    time.sleep(100000)
 
 

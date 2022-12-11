@@ -153,6 +153,7 @@ def webcam_demo():
             break
     cap.release()
 
+
 if __name__ == '__main__':
     coord_points = processing_image_demo(
         # 'body_test1.png'
