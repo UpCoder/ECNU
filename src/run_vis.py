@@ -41,18 +41,18 @@ if __name__ == '__main__':
         print(im_rd.shape)
 
         face.start(im_rd)
-        image, _, body_info = body.processing_frame(im_rd1, im_rd1, need_info=True)
-        # body.start_processing_frame_thread(im_rd1, im_rd1, True)
+        # image, _, body_info = body.processing_frame(im_rd1, im_rd1, need_info=True)
+        body.start_processing_frame_thread(im_rd1, im_rd1, True)
 
         face.wait()
-        # body.wait_processing_frame_thread()
-        # image = body.processing_frame_result['annotation_image']
+        body.wait_processing_frame_thread()
+        image = body.processing_frame_result['annotation_image']
         face.draw_face(image)
 
         infos = {
             **face.infos,
-            **body_info
-            # **body.processing_frame_result['metrics']
+            # **body_info
+            **body.processing_frame_result['metrics']
         }
 
         image = cv2.flip(image, 1)
