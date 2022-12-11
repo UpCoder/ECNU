@@ -352,7 +352,8 @@ class BodyInfo(object):
 
 
 class BodyProcessor(object):
-    def __init__(self, window_size=10):
+    def __init__(self, window_size=10, processor_method='mediapipe'):
+        self.processor_method = processor_method
         self.key_point_names = [
             'LEFT_SHOULDER',
             'RIGHT_SHOULDER',
@@ -385,6 +386,7 @@ class BodyProcessor(object):
     def process(self, frame, annotation_image, refuse=False):
         if refuse and self.last_body_result is not None:
             annotation_image, cur_body_coords, body_result = processing_pose_frame(
+                method=self.processor_method,
                 frame=frame,
                 annotation_image=annotation_image,
                 coord_names=self.key_point_names,
@@ -393,6 +395,7 @@ class BodyProcessor(object):
             )
         else:
             annotation_image, cur_body_coords, body_result = processing_pose_frame(
+                method=self.processor_method,
                 frame=frame,
                 annotation_image=annotation_image,
                 coord_names=self.key_point_names,
@@ -450,8 +453,8 @@ class BodyProcessor(object):
 
 class VideoProcessor(object):
     def __init__(self, window_size=16, txt_loc=(10, 60),
-                 line_width=30, calc_frame_interval=4):
-        self.body_processor = BodyProcessor(window_size=window_size)
+                 line_width=30, calc_frame_interval=4, body_processor_method='mediapipe'):
+        self.body_processor = BodyProcessor(window_size=window_size, processor_method=body_processor_method)
         self.hand_processor = HandProcessor(window_size=window_size)
         self.txt_loc = txt_loc
         self.line_width = line_width
@@ -461,7 +464,9 @@ class VideoProcessor(object):
         self.processing_frame_thread = None
 
     def start_processing_frame_thread(self, frame_image, annotation_image, need_info=False):
-        self.processing_frame_thread = threading.Thread(target=self.processing_frame, args=(frame_image, annotation_image, need_info))
+        self.processing_frame_thread = threading.Thread(target=self.processing_frame, args=(frame_image,
+                                                                                            annotation_image,
+                                                                                            need_info))
         self.processing_frame_thread.start()
 
 
@@ -485,7 +490,7 @@ class VideoProcessor(object):
             refuse=refuse)
         annotation_image, (lh_lr_str, lh_ud_str, lh_fb_str), \
         (rh_lr_str, rh_ud_str, rh_fb_str) = self.hand_processor.process(frame=frame_image,
-                                                                        annotation_image=annotation_image,
+                                                                        annotation_image=np.asarray(annotation_image),
                                                                         refuse=refuse)
         annotation_image_txt = annotation_image.copy()
         print_lines = [
@@ -550,7 +555,8 @@ if __name__ == '__main__':
     camera = Camera()
     camera.set_size(640, 480)
     print('step: 1')
-    body = VideoProcessor()
+    body_yolo = VideoProcessor(body_processor_method='yolov7')
+    body_mp = VideoProcessor(body_processor_method='mediapipe')
 
     while camera.video_capure.isOpened():
         start_time = time.time()
@@ -560,15 +566,25 @@ if __name__ == '__main__':
 
         im_rd = im_row.copy()
         im_rd1 = im_row.copy()
+        im_rd2 = im_row.copy()
+        im_rd3 = im_row.copy()
         print(im_rd.shape)
 
-        image, image_with_metrics, body_info = body.processing_frame(im_rd, im_rd1)
-        infos = {
-            **body_info
-        }
-        send_time = time.time()
+        # image, image_with_metrics, body_info = body_yolo.processing_frame(im_rd, im_rd1)
+        # infos = {
+        #     **body_info
+        # }
+        # send_time = time.time()
+        # image_, image_with_metrics_, body_info_ = body_mp.processing_frame(im_rd2, im_rd3)
+        # cv2.imshow("yolo", image_with_metrics)
+        # cv2.imshow("mp", image_with_metrics_)
+        body_yolo.start_processing_frame_thread(im_rd, im_rd1, True)
+        body_mp.start_processing_frame_thread(im_rd2, im_rd3, True)
 
-        cv2.imshow("demo", image_with_metrics)
+        body_yolo.wait_processing_frame_thread()
+        body_mp.wait_processing_frame_thread()
+        cv2.imshow("yolo", body_yolo.processing_frame_result['annotation_image'])
+        cv2.imshow("mp", body_mp.processing_frame_result['annotation_image'])
         k = cv2.waitKey(1)
 
         print('Single frame cost:', time.time() - start_time)

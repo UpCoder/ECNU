@@ -1,6 +1,6 @@
 import cv2
 import mediapipe as mp
-
+import numpy as np
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_hands = mp.solutions.hands
@@ -41,12 +41,15 @@ def processing_frame(image, annotation_image=None,
         elif hand_info.classification[0].label == 'Left':
             left_hand_coords = hand_coords
         if annotation_image is not None:
+            annotation_image = np.asarray(annotation_image).astype(np.uint8)
+            # nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
             mp_drawing.draw_landmarks(
                 annotation_image,
                 hand_landmarks,
                 mp_hands.HAND_CONNECTIONS,
                 mp_drawing_styles.get_default_hand_landmarks_style(),
                 mp_drawing_styles.get_default_hand_connections_style())
+    annotation_image = np.asarray(annotation_image).astype(np.uint8)
     return annotation_image, left_hand_coords, right_hand_coords, results
 
 

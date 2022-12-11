@@ -14,19 +14,79 @@ import os, time, random
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'device: {device}')
-weigths = torch.load('yolov7-w6-pose.pt', map_location=device)
+# weigths = torch.load('yolov7-w6-pose.pt', map_location=device)
+weigths = torch.load('E:\\PycharmProjects\\ECNU\\demo\\body_pix\\yolov7-w6-pose.pt', map_location=device)
 model = weigths['model']
 _ = model.float().eval()
 
 if torch.cuda.is_available():
     model.half().to(device)
     # model.to(device)
+'''
+keep same with mediapipe pose
+NOSE = 0
+  LEFT_EYE_INNER = 1
+  LEFT_EYE = 2
+  LEFT_EYE_OUTER = 3
+  RIGHT_EYE_INNER = 4
+  RIGHT_EYE = 5
+  RIGHT_EYE_OUTER = 6
+  LEFT_EAR = 7
+  RIGHT_EAR = 8
+  MOUTH_LEFT = 9
+  MOUTH_RIGHT = 10
+  LEFT_SHOULDER = 11
+  RIGHT_SHOULDER = 12
+  LEFT_ELBOW = 13
+  RIGHT_ELBOW = 14
+  LEFT_WRIST = 15
+  RIGHT_WRIST = 16
+  LEFT_PINKY = 17
+  RIGHT_PINKY = 18
+  LEFT_INDEX = 19
+  RIGHT_INDEX = 20
+  LEFT_THUMB = 21
+  RIGHT_THUMB = 22
+  LEFT_HIP = 23
+  RIGHT_HIP = 24
+  LEFT_KNEE = 25
+  RIGHT_KNEE = 26
+  LEFT_ANKLE = 27
+  RIGHT_ANKLE = 28
+  LEFT_HEEL = 29
+  RIGHT_HEEL = 30
+  LEFT_FOOT_INDEX = 31
+  RIGHT_FOOT_INDEX = 32
+'''
+yolov7_skeleton_keypoint_names = [
+        'NOSE',
+        'LEFT_EYE',
+        'RIGHT_EYE',
+        'LEFT_EAR',
+        'RIGHT_EAR',
+        'LEFT_SHOULDER',
+        'RIGHT_SHOULDER',
+        'LEFT_ELBOW',
+        'RIGHT_ELBOW',
+        'LEFT_WRIST',
+        'RIGHT_WRIST',
+        'LEFT_HIP',
+        'RIGHT_HIP',
+        'LEFT_KNEE',
+        'RIGHT_KNEE',
+        'LEFT_ANKLE',
+        'RIGHT_ANKLE'
+    ]
 
 
-def processing_pose_frame(frame, annotation_image, key_point_name, connections):
+def processing_pose_frame(frame, annotation_image, key_point_names, connections):
     # image = letterbox(frame, 960, stride=64, auto=True)[0]
     origin_shape = np.shape(frame)[:2]
-    image = cv2.resize(frame, (640, 640))
+    processing_shape = (640, 640)
+    x_ratio = origin_shape[0] / processing_shape[0]
+    y_ratio = origin_shape[1] / processing_shape[1]
+    image = cv2.resize(frame, processing_shape)
+    # annotation_image = cv2.resize(annotation_image, processing_shape)
     image = transforms.ToTensor()(image)
     image = torch.tensor(np.array([image.numpy()]))
 
@@ -37,21 +97,45 @@ def processing_pose_frame(frame, annotation_image, key_point_name, connections):
     output = non_max_suppression_kpt(output, 0.25, 0.65, nc=1, nkpt=17, kpt_label=True)
     with torch.no_grad():
         output = output_to_keypoint(output)
-    nimg = image[0].permute(1, 2, 0) * 255
-    nimg = nimg.cpu().numpy().astype(np.uint8)
-    nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
+    # nimg = image[0].permute(1, 2, 0) * 255
+    # nimg = nimg.cpu().numpy().astype(np.uint8)
+    nimg = np.asarray(annotation_image).astype(np.uint8)
+    # nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
+    # print('output shape: ', output.shape)
+    # if output.shape[0] > 1:
+    #     raise ValueError('do not support batch > 2')
+    res_coords = {}
     for idx in range(output.shape[0]):
-        plot_skeleton_kpts(nimg, output[idx, 7:].T, 3, np.shape(nimg))
-    nimg = cv2.resize(nimg, origin_shape)
-    return nimg[:, :, ::-1], None, None
+        coords_origin = output[idx, 7:].T
+        for idx_ in range(0, len(coords_origin), 3):
+            coords_origin[idx_] = coords_origin[idx_] * y_ratio
+            coords_origin[idx_+1] = coords_origin[idx_+1] * x_ratio
+        plot_skeleton_kpts(nimg,
+                           # output[idx, 7:].T,
+                           coords_origin,
+                           3,
+                           np.shape(nimg),
+                           draw_keypoints=key_point_names)
+        coords = np.reshape(output[idx, 7:].T, [-1, 3])
+        # print(f'coords: {coords}')
+        for key_point_name, coord_info in zip(yolov7_skeleton_keypoint_names, coords):
+            x = coord_info[0] / processing_shape[0]
+            y = coord_info[1] / processing_shape[1]
+            score = coord_info[2]
+            if score > 0.5:
+                res_coords[key_point_name] = {
+                    'x': x,
+                    'y': y,
+                    'z': 0,
+                    'score': score
+                }
+    annotation_image = np.asarray(nimg).astype(np.uint8)
+    # nimg = cv2.resize(nimg, origin_shape)
+    return annotation_image, res_coords, None
 
 
-def plot_skeleton_kpts(im, kpts, steps, orig_shape=None, draw_keypoints=['left_shoulder',
-        'right_shoulder',
-        'left_elbow',
-        'right_elbow',
-        'left_wrist',
-        'right_wrist']):
+def plot_skeleton_kpts(im, kpts, steps, orig_shape=None, draw_keypoints=[]):
+    # print(f'kpts: {type(kpts)}, {kpts}, {np.shape(kpts)}')
     #Plot the skeleton and keypointsfor coco datatset
     palette = np.array([[255, 128, 0], [255, 153, 51], [255, 178, 102],
                         [230, 230, 0], [255, 153, 255], [153, 204, 255],
@@ -60,25 +144,8 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None, draw_keypoints=['left_s
                         [255, 51, 51], [153, 255, 153], [102, 255, 102],
                         [51, 255, 51], [0, 255, 0], [0, 0, 255], [255, 0, 0],
                         [255, 255, 255]])
-    key_names = [
-        'nose',
-        'left_eye',
-        'right_eye',
-        'left_ear',
-        'right_ear',
-        'left_shoulder',
-        'right_shoulder',
-        'left_elbow',
-        'right_elbow',
-        'left_wrist',
-        'right_wrist',
-        'left_hip',
-        'right_hip',
-        'left_knee',
-        'right_knee',
-        'left_ankle',
-        'right_ankle'
-    ]
+
+
     # 1-‘nose’ 2-‘left_eye’ 3-‘right_eye’ 4-‘left_ear’ 5-‘right_ear’ 6-‘left_shoulder’ 7-‘right_shoulder’
     # 8-‘left_elbow’ -‘right_elbow’ 10-‘left_wrist’ 11-‘right_wrist’ 12-‘left_hip’ 13-‘right_hip’ 14-‘left_knee’
     # 15-‘right_knee’ 16-‘left_ankle’ 17-‘right_ankle’
@@ -94,7 +161,7 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None, draw_keypoints=['left_s
     num_kpts = len(kpts) // steps
 
     for kid in range(num_kpts):
-        if key_names[kid - 1] not in draw_keypoints:
+        if yolov7_skeleton_keypoint_names[kid - 1] not in draw_keypoints:
             continue
         r, g, b = pose_kpt_color[kid]
         x_coord, y_coord = kpts[steps * kid], kpts[steps * kid + 1]
@@ -107,8 +174,9 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None, draw_keypoints=['left_s
 
     for sk_id, sk in enumerate(skeleton):
         r, g, b = pose_limb_color[sk_id]
-        print(sk_id, sk, len(key_names))
-        if key_names[sk[0] - 1] not in draw_keypoints or key_names[sk[1] - 1] not in draw_keypoints:
+        # print(sk_id, sk, len(yolov7_skeleton_keypoint_names))
+        if yolov7_skeleton_keypoint_names[sk[0] - 1] not in draw_keypoints or \
+                yolov7_skeleton_keypoint_names[sk[1] - 1] not in draw_keypoints:
             continue
         pos1 = (int(kpts[(sk[0]-1)*steps]), int(kpts[(sk[0]-1)*steps+1]))
         pos2 = (int(kpts[(sk[1]-1)*steps]), int(kpts[(sk[1]-1)*steps+1]))
@@ -429,8 +497,15 @@ def show_window(cap):
         # nimg = cv2.cvtColor(nimg, cv2.COLOR_RGB2BGR)
         # for idx in range(output.shape[0]):
         #     plot_skeleton_kpts(nimg, output[idx, 7:].T, 3, nimg.shape)
-        #
-        nimg, _, _ = processing_pose_frame(cap.frame, None, None, None)
+
+        keypoint_names = ['LEFT_SHOULDER',
+                          'RIGHT_SHOULDER',
+                          'LEFT_ELBOW',  # 肘部
+                          'RIGHT_ELBOW',  # 肘部
+                          'LEFT_WRIST',  # 手腕
+                          'RIGHT_WRIST'  # 手腕
+                          ]
+        nimg, _, _ = processing_pose_frame(cap.frame, cap.frame, keypoint_names, None)
         # cv2.imshow('window', cap.frame)
         cv2.imshow('window', nimg)
         c = cv2.waitKey(50)  # 按ESC退出画面

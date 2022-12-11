@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+from demo.body_pix.keypoint_yolov7 import processing_pose_frame as processing_pose_frame_yolov7
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
@@ -14,11 +15,22 @@ class NormalizedLandmarkListSelf(object):
     def __init__(self):
         self.landmark = None
 
-def processing_frame(frame, annotation_image,
-                     coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER'],
-                     is_white_bg=False,
-                     pose_result=None,
-                     connections=None):
+
+def processing_frame(method, frame, annotation_image, coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER'],
+                     is_white_bg=False, pose_result=None, connections=None):
+    if method == 'mediapipe':
+        return processing_frame_mediapipe(frame, annotation_image, coord_names, is_white_bg, pose_result, connections)
+    elif method == 'yolov7':
+        return processing_pose_frame_yolov7(frame, annotation_image, coord_names, None)
+    else:
+        raise ValueError(f'method={method} do not support, only support mediapipe/yolov7 now!')
+
+
+def processing_frame_mediapipe(frame, annotation_image,
+                               coord_names=['LEFT_SHOULDER', 'RIGHT_SHOULDER'],
+                               is_white_bg=False,
+                               pose_result=None,
+                               connections=None):
     image_height, image_width, _ = frame.shape
     # Convert the BGR image to RGB before processing.
     if pose_result is None:

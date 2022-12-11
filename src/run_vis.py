@@ -24,7 +24,7 @@ if __name__ == '__main__':
     camera.set_size(args.width, args.height)
 
     face = FaceAnalyzer(args.width, args.height)
-    body = VideoProcessor(calc_frame_interval=10000000000)
+    body = VideoProcessor(calc_frame_interval=10000000000, body_processor_method='yolov7')
 
     socket_client = SocketClient()
     socket_client.connet(host=args.host, port=args.port)
