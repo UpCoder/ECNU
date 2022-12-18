@@ -1,3 +1,4 @@
+import queue
 import threading
 
 import cv2
@@ -248,7 +249,7 @@ class BodyInfo(object):
             self.body_info_window_avg.append(BodyInfoSingle.build(
                 self.coords[len(self.coords) - self.window_size:]
             ))
-            print(f'add body_info windows avg: {self.body_info_window_avg[-1].body_coord}')
+            # print(f'add body_info windows avg: {self.body_info_window_avg[-1].body_coord}')
     def merge(self, left_rights, distances):
         """
         将[0, 0, 0, 1, 1, 1, 0, 0] => [0, 1, 0]
@@ -304,17 +305,17 @@ class BodyInfo(object):
                                           last_info.right_arm_coord[axis_name]))
             last_info = cur_body_info
         body_swing_threshold = np.mean(body_width_avg) * 0.2
-        print(f'body_swing_threshold: {body_swing_threshold}')
+        # print(f'body_swing_threshold: {body_swing_threshold}')
 
         left_arm_swing_threshold = np.mean(body_width_avg) * 0.1
         right_arm_swing_threshold = np.mean(body_width_avg) * 0.1
 
         # 计算身体摆动的次数
-        print(f'body left/right: {body_left_right}')
-        print(f'body distances: {body_distances}')
+        # print(f'body left/right: {body_left_right}')
+        # print(f'body distances: {body_distances}')
         body_left_right_merge, body_distances_merge = self.merge(body_left_right, body_distances)
-        print(f'merge body left/right: {body_left_right_merge}')
-        print(f'merge body distances: {body_distances_merge}')
+        # print(f'merge body left/right: {body_left_right_merge}')
+        # print(f'merge body distances: {body_distances_merge}')
         count_body_swing = 0
         for idx in range(1, len(body_left_right_merge), 2):
             move_distance = max(body_distances_merge[idx-1], body_distances_merge[idx])
@@ -322,8 +323,8 @@ class BodyInfo(object):
                 count_body_swing += 1
 
         # 计算左胳膊摆动的次数
-        print(f'left arm left/right: {left_arm_left_right}')
-        print(f'left arm distances: {left_arm_distance}')
+        # print(f'left arm left/right: {left_arm_left_right}')
+        # print(f'left arm distances: {left_arm_distance}')
         left_arm_left_right_merge, left_arm_distances_merge = self.merge(left_arm_left_right, left_arm_distance)
         count_left_arm_swing = 0
         for idx in range(1, len(left_arm_left_right_merge), 2):
@@ -332,11 +333,11 @@ class BodyInfo(object):
                 count_left_arm_swing += 1
 
         # 计算右胳膊摆动的次数
-        print(f'right arm left/right: {right_arm_left_right}')
-        print(f'right arm distances: {right_arm_distance}')
+        # print(f'right arm left/right: {right_arm_left_right}')
+        # print(f'right arm distances: {right_arm_distance}')
         right_arm_left_right_merge, right_arm_distances_merge = self.merge(right_arm_left_right, right_arm_distance)
-        print(f'merge right arm left/right: {right_arm_left_right_merge}')
-        print(f'merge right arm distances: {right_arm_distances_merge}')
+        # print(f'merge right arm left/right: {right_arm_left_right_merge}')
+        # print(f'merge right arm distances: {right_arm_distances_merge}')
         count_right_arm_swing = 0
         for idx in range(1, len(right_arm_left_right_merge), 2):
             move_distance = max(right_arm_distances_merge[idx - 1], right_arm_distances_merge[idx])
@@ -453,7 +454,9 @@ class BodyProcessor(object):
 
 class VideoProcessor(object):
     def __init__(self, window_size=16, txt_loc=(10, 60),
-                 line_width=30, calc_frame_interval=4, body_processor_method='mediapipe'):
+                 line_width=30, calc_frame_interval=4,
+                 body_processor_method='mediapipe',
+                 recorder_queue: queue.Queue = None):
         self.body_processor = BodyProcessor(window_size=window_size, processor_method=body_processor_method)
         self.hand_processor = HandProcessor(window_size=window_size)
         self.txt_loc = txt_loc
@@ -462,6 +465,7 @@ class VideoProcessor(object):
         self.calc_frame_interval = calc_frame_interval
         self.processing_frame_result = None
         self.processing_frame_thread = None
+        self.recorder_queue = recorder_queue
 
     def start_processing_frame_thread(self, frame_image, annotation_image, need_info=False):
         self.processing_frame_thread = threading.Thread(target=self.processing_frame, args=(frame_image,
@@ -469,6 +473,17 @@ class VideoProcessor(object):
                                                                                             need_info))
         self.processing_frame_thread.start()
 
+    def add_recorder_msg(self, data_dict: dict = None):
+        """
+        留存日志信息
+        :return:
+        """
+        if self.recorder_queue is not None and data_dict is not None:
+            self.recorder_queue.put({
+                'type': 'dict',
+                'origin': 'body',
+                **data_dict
+            })
 
     def wait_processing_frame_thread(self):
         if self.processing_frame_thread is not None:
@@ -521,6 +536,9 @@ class VideoProcessor(object):
             'annotation_image_txt': annotation_image_txt,
             'metrics': body_hand_metrics
         }
+        self.add_recorder_msg(
+            body_hand_metrics
+        )
         return annotation_image, annotation_image_txt, body_hand_metrics
 
     def put_txts(self, frame, txts, start_loc, line_width, font=cv2.FONT_HERSHEY_SIMPLEX):

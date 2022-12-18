@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import logging
+import queue
 import random
 import threading
 import multiprocessing
@@ -25,7 +26,8 @@ class AudioASRRecord(object):
     def __init__(self, sample_rate=16000, record_duration=5,
                  n_channels=2, args=None, client=None,
                  stop_interval=5, stop_threshold=3000,
-                 global_status: GlobalStatus=None):
+                 global_status: GlobalStatus=None,
+                 recorder_queue: queue.Queue = None):
         self.stop_interval = stop_interval
         self.stop_threshold = stop_threshold
         self.appid = "6747655566"    # 项目的 appid
@@ -46,6 +48,7 @@ class AudioASRRecord(object):
                 channel=self.channel,
                 bits=self.bits
         )
+        self.recorder_queue = recorder_queue
         # sample rate
         self.fs = sample_rate
         self.seconds = record_duration
@@ -70,6 +73,18 @@ class AudioASRRecord(object):
             self.socket_client = client
         self.in_listen = False
 
+    def add_recorder_msg(self, data_dict: dict = None):
+        """
+        留存日志信息
+        :return:
+        """
+        if self.recorder_queue is not None and data_dict is not None:
+            self.recorder_queue.put({
+                'type': 'dict',
+                'origin': 'audio',
+                **data_dict
+            })
+
     def start_get_asr_result_thread(self):
         if self.asr_result_thread is None or not self.asr_result_thread.is_alive():
             self.asr_result_thread = threading.Thread(target=self.get_asr_result_thread)
@@ -87,6 +102,11 @@ class AudioASRRecord(object):
             if self.process_idx >= len(self.records):
                 continue
             cur_record = self.records[self.process_idx]
+            self.add_recorder_msg({
+                'action': 'save_wav',
+                'data': cur_record,
+                'fs': self.fs
+            })
             self.process_idx += 1
             asr_result = self.get_asr_result(cur_record.tobytes())
             print(f'asr_result: {asr_result}')
@@ -97,6 +117,11 @@ class AudioASRRecord(object):
             # TODO send msg
             if asr_result != '':
                 self.socket_client.send_asr_txt('被试：' + asr_result)
+                self.add_recorder_msg(
+                    {
+                        'asr': '被试：' + asr_result
+                    }
+                )
                 # self.global_status.send_msg_client.send_message(json.dumps(
                 #     {
                 #         "dialogue": str('被试：' + asr_result),
@@ -129,6 +154,15 @@ class AudioASRRecord(object):
                         **self.calc_metrics()
                     },
                 ))
+                self.add_recorder_msg(
+                    {
+                        'asr': '虚拟人：' + self.global_status.questions.questions[
+                            self.global_status.current_question_id].content
+                    }
+                )
+                self.add_recorder_msg({
+                    **self.calc_metrics()
+                })
                 # time.sleep(0.1)
                 # self.global_status.send_msg_client.send_message(json.dumps(
                 #     self.calc_metrics()

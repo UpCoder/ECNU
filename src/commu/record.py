@@ -2,12 +2,23 @@ import time
 import json
 import queue
 import threading
+import os
+from scipy.io import wavfile
+
+
+def write_wav(data, save_path, fs):
+    wavfile.write(save_path, fs, data)
+
 
 class Recorder(object):
 
-    def __init__(self, save_path='record.txt'):
+    def __init__(self, save_path='record.txt', wav_dir='./'):
         self.save_path = save_path
         self.q1 = queue.Queue()
+        self.wav_dir = wav_dir
+        if not os.path.exists(self.wav_dir):
+            os.makedirs(self.wav_dir)
+            print(f'mkdirs: {self.wav_dir}')
 
     def record(self):
         with open(self.save_path, 'w') as f:
@@ -21,8 +32,25 @@ class Recorder(object):
                         f.write(text_log+'\n')
                     elif type(text_log) == dict:
                         text_log['timestamp'] = time.time()
-                        text_log = json.dumps(text_log)
-                        f.write(text_log+'\n')
+                        origin = text_log.get('origin', None)
+                        if origin is None or origin == 'body':
+                            text_log = json.dumps(text_log)
+                            f.write(text_log+'\n')
+                        elif origin == 'audio':
+                            if text_log.get('action', None) == 'save_wav':
+                                filename = '{}.wav'.format(text_log['timestamp'])
+                                save_path = os.path.join(self.wav_dir, filename)
+                                write_wav(
+                                    text_log['data'],
+                                    save_path,
+                                    text_log['fs']
+                                )
+                                text_log['data'] = filename
+                                text_log = json.dumps(text_log)
+                                f.write(text_log + '\n')
+                            else:
+                                text_log = json.dumps(text_log)
+                                f.write(text_log + '\n')
                 time.sleep(0.01)
 
     def start(self):

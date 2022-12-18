@@ -11,7 +11,7 @@ from commu.record import Recorder
 
 
 if __name__ == '__main__':
-    #start_pipeline('localhost', 8889)
+
     parser = argparse.ArgumentParser(description='Demo')
     parser.add_argument('--width', type=int, default=640)
     parser.add_argument('--height', type=int, default=480)
@@ -19,17 +19,20 @@ if __name__ == '__main__':
     parser.add_argument('--host', type=str, default="localhost")
     parser.add_argument('--port', type=int, default=8888)
     parser.add_argument('--record_file', type=str, default='record.txt')
+    parser.add_argument('--record_wav_dir', type=str, default='./wav')
     args = parser.parse_args()
     print(args)
 
-    recorder = Recorder(args.record_file)
+    recorder = Recorder(args.record_file, args.record_wav_dir)
     recorder.start()
-
+    start_pipeline(recorder.q1)
     camera = Camera()
     camera.set_size(args.width, args.height)
 
     face = FaceAnalyzer(args.width, args.height, recorder.q1)
-    body = VideoProcessor(calc_frame_interval=10000000000, body_processor_method='yolov7')
+    body = VideoProcessor(calc_frame_interval=10000000000,
+                          body_processor_method='yolov7',
+                          recorder_queue=recorder.q1)
 
     socket_client = SocketClient()
     socket_client.connet(host=args.host, port=args.port)
