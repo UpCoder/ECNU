@@ -1,5 +1,6 @@
 import cv2
 import time
+import json
 import numpy as np
 import mediapipe as mp
 import threading
@@ -12,7 +13,7 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 
 class FaceAnalyzer(object):
 
-    def __init__(self, width, height):
+    def __init__(self, width, height, queue):
         self.width = width
         self.height = height
         self.has_face = False
@@ -46,6 +47,8 @@ class FaceAnalyzer(object):
         # nod detect
         self.nod_cnt = 0
         self.nod_detecter = NodDetecter(10)
+
+        self.record_queue = queue
 
     def set_size(self, width, height):
         self.width = width
@@ -107,11 +110,11 @@ class FaceAnalyzer(object):
             x_max = max(x_max, int(abs(point[0])))
             y_min = min(y_min, int(abs(point[1])))
             y_max = max(y_max, int(abs(point[1])))
-        print(x_min, x_max, y_min, y_max)
+        # print(x_min, x_max, y_min, y_max)
         x_buff, y_buff = int((x_max-x_min)/4), int((y_max-y_min)/4)
         # rect = [max(0, x_min-x_buff), min(self.width, x_max+x_buff), max(0, y_min-y_buff), min(self.height, y_max+y_buff)]
         rect = [x_min, x_max, y_min, y_max]
-        print(rect)
+        # print(rect)
         return rect
 
     def _put_text(self, image, text, str_val):
@@ -164,7 +167,7 @@ class FaceAnalyzer(object):
                 self.infos['face_expression'] = self.expression
                 self.infos['face_smile'] = self.smile_score
                 self.infos['face_frown'] = self.frown_score
-                print("expression:{}  time:{}".format(pred, time.time()-expression_start_time))
+                # print("expression:{}  time:{}".format(pred, time.time()-expression_start_time))
 
                 # self._put_text(draw_image, "expression", pred)
                 # self._put_text(draw_image, "smile_score", "{:.2f}".format(self.smile_score))
@@ -175,13 +178,13 @@ class FaceAnalyzer(object):
                 # self._put_text(draw_image, "H_orient", "{:4.2f}".format(infos["H_orient"]))
                 # self._put_text(draw_image, "V_orient", "{:4.2f}".format(infos["V_orient"]))
                 # self._put_text(draw_image, "Nod", str(self.nod_cnt))
-
+                self.record_queue.put(self.infos)
             else:
                 self.has_face = False
 
             # self.draw_face(draw_image)
             # image = cv2.flip(image, 1)
-            print('mesh_time:', time.time() - start_time)
+            # print('mesh_time:', time.time() - start_time)
         except Exception as e:
             print('Error:', str(e))
             return
