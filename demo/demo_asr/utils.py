@@ -1,3 +1,4 @@
+#coding:utf-8
 import time
 import os
 from src.commu.client import SocketClient
@@ -6,7 +7,7 @@ import json
 
 global_json_path = '../环境变量.json'
 if os.path.exists(global_json_path):
-    config_json_obj = json.load(open(global_json_path, 'r'))
+    config_json_obj = json.load(open(global_json_path, 'r', encoding='utf-8'))
 else:
     config_json_obj = dict()
 
