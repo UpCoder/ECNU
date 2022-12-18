@@ -163,7 +163,7 @@ class FaceAnalyzer(object):
                     self.smile_score = max((score-0.5)*2, 0)
                 elif pred == 'Angry' or pred == 'Sad':
                     self.frown_score = score
-
+                # self.infos['origin'] = 'face'
                 self.infos['face_expression'] = self.expression
                 self.infos['face_smile'] = self.smile_score
                 self.infos['face_frown'] = self.frown_score
