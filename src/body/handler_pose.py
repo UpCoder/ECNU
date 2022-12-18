@@ -1,7 +1,8 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-from demo.body_pix.keypoint_yolov7 import processing_pose_frame as processing_pose_frame_yolov7
+# from demo.body_pix.keypoint_yolov7 import processing_pose_frame as processing_pose_frame_yolov7
+from demo_release import inference_frame_image as processing_pose_frame_light
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose
@@ -22,6 +23,8 @@ def processing_frame(method, frame, annotation_image, coord_names=['LEFT_SHOULDE
         return processing_frame_mediapipe(frame, annotation_image, coord_names, is_white_bg, pose_result, connections)
     elif method == 'yolov7':
         return processing_pose_frame_yolov7(frame, annotation_image, coord_names, None)
+    elif method == 'light':
+        return processing_pose_frame_light(frame, annotation_image, coord_names, None)
     else:
         raise ValueError(f'method={method} do not support, only support mediapipe/yolov7 now!')
 
