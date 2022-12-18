@@ -1,8 +1,14 @@
 import time
-
+import os
 from src.commu.client import SocketClient
 from src.language.question import Questions
 import json
+
+global_json_path = '../环境变量.json'
+if os.path.exists(global_json_path):
+    config_json_obj = json.load(open(global_json_path, 'r'))
+else:
+    config_json_obj = dict()
 
 
 class GlobalStatus(object):
@@ -15,6 +21,9 @@ class GlobalStatus(object):
         self.send_msg_client.connet(ip, port)
 
         self.questions = Questions()
+        self.sample_rate = config_json_obj.get('语音-采样频率', 16000)
+        self.asr_record_duration = config_json_obj.get('语音-翻译间隔', 5)
+        self.stop_threshold = config_json_obj.get('语音-安静阈值', 6000)
         # self.send_msg_client = None
 
     def reset(self):

@@ -73,9 +73,10 @@ def start_pipeline(ip, port):
         #     break
     global_status = GlobalStatus('localhost', 8889)
     audio_processor = AudioProcessor(
-        sample_rate=16000, asr_record_duration=5,
+        sample_rate=global_status.sample_rate,
+        asr_record_duration=global_status.asr_record_duration,
         stop_record_duration=1, n_channels=2,
-        stop_interval=3, stop_threshold=6000,
+        stop_interval=3, stop_threshold=global_status.stop_threshold,
         global_status=global_status
     )
     print('receive after.')
