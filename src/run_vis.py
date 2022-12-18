@@ -7,23 +7,28 @@ from face.face_analyzer import FaceAnalyzer
 from commu.client import SocketClient
 from body.body_processor import VideoProcessor
 from demo.demo_asr.AudioProcessor import start_pipeline
+from commu.record import Recorder
 
 
 if __name__ == '__main__':
-    start_pipeline('localhost', 8889)
+    #start_pipeline('localhost', 8889)
     parser = argparse.ArgumentParser(description='Demo')
     parser.add_argument('--width', type=int, default=640)
     parser.add_argument('--height', type=int, default=480)
-    parser.add_argument('--send_data', type=bool, default=True)
+    parser.add_argument('--send_data', type=bool, default=False)
     parser.add_argument('--host', type=str, default="localhost")
     parser.add_argument('--port', type=int, default=8888)
+    parser.add_argument('--record_file', type=str, default='record.txt')
     args = parser.parse_args()
     print(args)
+
+    recorder = Recorder(args.record_file)
+    recorder.start()
 
     camera = Camera()
     camera.set_size(args.width, args.height)
 
-    face = FaceAnalyzer(args.width, args.height)
+    face = FaceAnalyzer(args.width, args.height, recorder.q1)
     body = VideoProcessor(calc_frame_interval=10000000000, body_processor_method='yolov7')
 
     socket_client = SocketClient()
@@ -41,19 +46,20 @@ if __name__ == '__main__':
         print(im_rd.shape)
 
         face.start(im_rd)
-        # image, _, body_info = body.processing_frame(im_rd1, im_rd1, need_info=True)
-        body.start_processing_frame_thread(im_rd1, im_rd1, True)
+        image, _, body_info = body.processing_frame(im_rd1, im_rd1, need_info=True)
+        # body.start_processing_frame_thread(im_rd1, im_rd1, True)
 
         face.wait()
-        body.wait_processing_frame_thread()
-        image = body.processing_frame_result['annotation_image']
+        # body.wait_processing_frame_thread()
+        # image = body.processing_frame_result['annotation_image']
         face.draw_face(image)
 
         infos = {
             **face.infos,
-            # **body_info
-            **body.processing_frame_result['metrics']
+            **body_info
+            # **body.processing_frame_result['metrics']
         }
+        recorder.q1.put(infos)
 
         image = cv2.flip(image, 1)
 
@@ -72,3 +78,4 @@ if __name__ == '__main__':
 
     camera.video_capure.release()
     cv2.destroyAllWindows()
+    recorder.end()
