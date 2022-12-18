@@ -5,7 +5,7 @@ from src.commu.client import SocketClient
 from src.language.question import Questions
 import json
 
-global_json_path = '../环境变量.json'
+global_json_path = '../../环境变量.json'
 if os.path.exists(global_json_path):
     config_json_obj = json.load(open(global_json_path, 'r', encoding='utf-8'))
 else:
@@ -73,3 +73,6 @@ def audio_receive_message(conn, audio_processor_obj, global_status:GlobalStatus)
             global_status.reset()
             audio_processor_obj.reset()
 
+
+if __name__ == '__main__':
+    print(config_json_obj)
