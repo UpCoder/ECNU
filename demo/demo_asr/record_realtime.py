@@ -31,7 +31,7 @@ def merge_asr(cur_asr_result: str, last_asr_result: str):
         idx = cur_asr_result.find(find_str)
         if idx == -1:
             continue
-        return last_asr_result[:end_position] + cur_asr_result[idx+len(find_str):]
+        return last_asr_result[:end_position] + cur_asr_result[idx+len(find_str)-1:]
     return cur_asr_result
 
 
@@ -48,12 +48,13 @@ class QAData(object):
         self.processed_chunk_idx = 0
 
 
-class Recorder:
+class AudioRecorderProcessor:
     def __init__(self, chunk=16000, channels=2,
                  rate=16000, max_asr_window=30,
                  asr_interval_sec=1,
                  stop_sec_threshold=3,
                  stop_value_threshold=6000,
+                 think_sec_threshold=5,
                  global_status: GlobalStatus = None,
                  recorder_queue: queue.Queue = None):
         self.CHUNK = chunk
@@ -91,6 +92,7 @@ class Recorder:
 
         self.stop_sec_threshold = stop_sec_threshold
         self.stop_value_threshold = stop_value_threshold
+        self.think_sec_threshold = think_sec_threshold  # 每个问题开始的等待时间
         self.listen_is_stop_flag = False
 
         self.global_status = global_status
@@ -154,7 +156,9 @@ class Recorder:
             # 时间
             cost_secs = len(self.qa_data.frames_qa_format[-1]) * self.sec_per_chunk
             # 计算响度
-            data = self.qa_data.frames_qa_format[-1]
+            data = [np.reshape(np.frombuffer(binary_value, dtype=np.int16), [-1, 2])
+                    for binary_value in self.qa_data.frames_qa_format[-1]]
+            print(data)
             # data = [self.stop_records[-1]]
             loudness = []
             # 计算高音pitch
@@ -163,15 +167,15 @@ class Recorder:
             speech_pause_duration_ms = []
             for single_record in data:
                 # print(single_record[np.where(single_record['record'] >= 0)])
-                loudness.append(np.mean(single_record['record']))
-                speech_pitch = max(speech_pitch, np.max(single_record['record']))
+                loudness.append(np.mean(single_record))
+                speech_pitch = max(speech_pitch, np.max(single_record))
                 # 计算停顿次数
                 speech_pause_count_, speech_pause_duration_ms_ = self.calc_metrics_stop_interval(
-                    single_record['record'], 300)
+                    single_record, 300)
                 speech_pause_count += speech_pause_count_
                 speech_pause_duration_ms.extend(speech_pause_duration_ms_)
             # 计算语速
-            speech_speed = self.qa_data.current_merged_results[-1] / cost_secs
+            speech_speed = len(self.qa_data.current_merged_results[-1]) / cost_secs
 
             # 计算说话时长
             speech_length = cost_secs
@@ -225,7 +229,8 @@ class Recorder:
             print(type(data), e - s)
             self._frames.append(data)
             self.qa_data.frames_qa_format[-1].append(data)
-            if self.print_is_stop():
+            print(f'len qa_data.frames_qa_format: {len(self.qa_data.frames_qa_format[-1])}')
+            if self.is_stop(self.qa_data.frames_qa_format[-1]):
                 self.global_status.is_stop = True
             else:
                 self.global_status.is_stop = False
@@ -305,10 +310,13 @@ class Recorder:
         pl.title("original wave")
         pl.show()
 
-    def get_asr_result_core(self):
+    def get_asr_result_core(self, frames=None):
         max_frames = self.max_asr_window // self.sec_per_chunk
         print(f'max_frames: {max_frames}, {len(self._frames)}')
-        binary_data = b''.join(self._frames[int(-1 * max_frames):])
+        if frames is None:
+            binary_data = b''.join(self._frames[int(-1 * max_frames):])
+        else:
+            binary_data = b''.join(frames[int(-1 * max_frames):])
         arrive_limit = max_frames <= len(self._frames)
         print(f'arrive_limit: {arrive_limit}')
         result = asyncio.run(self.asr_client.execute_raw(binary_data, self.channel,
@@ -323,7 +331,7 @@ class Recorder:
                 merged_asr_result = merge_asr(cur_asr_result, self.merged_asr_results[-1])
                 # self.merged_asr_results.append(merged_asr_result)
             print(f'cur_asr_result: {cur_asr_result}')
-            print(f'merged asr result: {self.merged_asr_results[-1]}')
+            # print(f'merged asr result: {self.merged_asr_results[-1]}')
             return cur_asr_result, merged_asr_result
         else:
             print(result)
@@ -348,7 +356,7 @@ class Recorder:
             if self.qa_data.processed_chunk_idx >= len(self.qa_data.frames_qa_format[-1]):
                 time.sleep(0.001)
                 continue
-            cur_asr_result, merged_asr_result = self.get_asr_result_core()
+            cur_asr_result, merged_asr_result = self.get_asr_result_core(self.qa_data.frames_qa_format[-1])
             self.qa_data.processed_chunk_idx += 1
             print(f'cur_asr_result: {cur_asr_result}\nmerged_asr_result: {merged_asr_result}')
             self.qa_data.current_answer_results.append(cur_asr_result)
@@ -382,9 +390,6 @@ class Recorder:
                 4. 留存相关数据
                 5. 重置相关状态
                 '''
-                # send next play audio
-                self.global_status.asr_in_listen = False
-                self.global_status.is_stop = False
                 # self.question_answers.append(self.cur_question_answer)
 
                 print('next quest')
@@ -421,8 +426,8 @@ class Recorder:
 
                 self.add_recorder_msg({
                     'action': 'save_wav',
-                    'data': np.frombuffer(b''.join(self.qa_data.frames_qa_format[-1]),
-                                          dtype=np.int16),
+                    'data': np.reshape(np.frombuffer(b''.join(self.qa_data.frames_qa_format[-1]),
+                                       dtype=np.int16), [-1, 2]),
                     'fs': self.RATE
                 })
 
@@ -433,6 +438,8 @@ class Recorder:
                 self.qa_data.current_merged_results = []
                 self.qa_data.current_answer_results = []
                 self.qa_data.processed_chunk_idx = 0
+                self.global_status.asr_in_listen = False
+                self.global_status.is_stop = False
             continue
 
     def start_get_asr_result_thread(self):
@@ -448,11 +455,16 @@ class Recorder:
     def end_print_asr_loop(self):
         self.print_asr_loop_flag = False
 
-    def is_stop(self):
+    def is_stop(self, frames=None):
         num_chunks = math.ceil(self.stop_sec_threshold / self.sec_per_chunk)
-        print(f'num_chunks: {num_chunks}')
-        binary_values = self._frames[int((-1 * num_chunks)):]
-        if len(binary_values) < num_chunks:
+        think_num_chunks = math.ceil(self.think_sec_threshold / self.sec_per_chunk)
+        print(f'num_chunks: {num_chunks} / {len(frames) if frames is not None else len(self._frames)},'
+              f'think_num_chunks: {think_num_chunks}')
+        if frames is None:
+            binary_values = self._frames[int((-1 * num_chunks)):]
+        else:
+            binary_values = frames[int((-1 * num_chunks)):]
+        if len(binary_values) < num_chunks or len(frames) < think_num_chunks:
             return False
         binary_values = b''.join(binary_values)
         np_values = np.frombuffer(binary_values, dtype=np.int16)
@@ -487,7 +499,7 @@ class Recorder:
         rate = 16000    # 每秒采样的frame个数
         channels = 2
         chunk = rate    # Specifies the number of frames per buffer. chunk=rate代表每秒存储一次，chunk=rate*0.5,则代表500毫秒采样一次
-        re = Recorder(rate=rate, channels=channels, chunk=chunk)
+        re = AudioRecorderProcessor(rate=rate, channels=channels, chunk=chunk)
 
         # 创建窗口
         window = QWidget()
@@ -535,7 +547,7 @@ class Recorder:
     @staticmethod
     def start_test_pipeline():
         global_status = GlobalStatus('localhost', 8889)
-        recorder = Recorder(max_asr_window=30, global_status=global_status)
+        recorder = AudioRecorderProcessor(max_asr_window=30, global_status=global_status)
         global_status.asr_in_listen = True
         global_status.stop_in_listen = True
         global_status.is_stop = False
@@ -545,8 +557,8 @@ class Recorder:
 
 
 if __name__ == '__main__':
-    # audit_recorder = Recorder(
+    # audit_recorder = AudioRecorderProcessor(
     #     max_asr_window=30
     # )
     # audit_recorder.start_qt()
-    Recorder.start_test_pipeline()
+    AudioRecorderProcessor.start_test_pipeline()

@@ -8,6 +8,7 @@ import time
 from src.commu.client import SocketClient
 from demo.demo_asr.realtime_demo_raw import AudioASRRecord
 from demo.demo_asr.realtime_if_stop import AudioStopRecord
+from demo.demo_asr.record_realtime import AudioRecorderProcessor
 from demo.demo_asr.utils import GlobalStatus, audio_receive_message
 
 
@@ -27,15 +28,21 @@ class AudioProcessor(object):
         self.stop_threshold = stop_threshold
         self.global_status = global_status
         self.recorder_queue = recorder_queue
-        self.audio_asr_object = AudioASRRecord(sample_rate, record_duration=asr_record_duration,
-                                               n_channels=n_channels, global_status=global_status,
-                                               recorder_queue=self.recorder_queue)
-        self.audio_stop_object = AudioStopRecord(sample_rate, stop_record_duration, n_channels,
-                                                 stop_interval, stop_threshold, global_status=global_status)
+        # self.audio_recorder_processor_object = AudioASRRecord(sample_rate, record_duration=asr_record_duration,
+        #                                        n_channels=n_channels, global_status=global_status,
+        #                                        recorder_queue=self.recorder_queue)
+        self.audio_recorder_processor_object = AudioRecorderProcessor(
+            rate=sample_rate, channels=n_channels, global_status=global_status,
+            recorder_queue=recorder_queue, stop_sec_threshold=global_status.stop_sec_threshold,
+            stop_value_threshold=global_status.stop_threshold,
+            think_sec_threshold=global_status.think_sec_threshold
+        )
+        # self.audio_stop_object = AudioStopRecord(sample_rate, stop_record_duration, n_channels,
+        #                                          stop_interval, stop_threshold, global_status=global_status)
         # 开启监听
         # self.audio_stop_object.start_listen_is_stop_thread()
-        self.audio_asr_object.start_get_asr_result_thread()
-        self.audio_asr_object.start_realtime_recording_thread()
+        self.audio_recorder_processor_object.start_get_asr_result_thread()
+        self.audio_recorder_processor_object.start_realtime_recording_thread()
 
     def reset(self):
         self.audio_asr_object = AudioASRRecord(self.sample_rate, record_duration=self.asr_record_duration,
@@ -93,5 +100,12 @@ def start_pipeline(recorder_queue: queue.Queue = None):
 
 
 if __name__ == '__main__':
-    start_pipeline('localhost', 8880)
+    from src.commu.record import Recorder
+    import os
+    timestamp_now = time.time()
+    record_file_path = os.path.join('./', '{}_record.txt'.format(timestamp_now))
+    wav_dir = os.path.join('./wav', '{}'.format(timestamp_now))
+    recorder = Recorder(record_file_path, wav_dir)
+    recorder.start()
+    start_pipeline(recorder.q1)
     time.sleep(1000000)

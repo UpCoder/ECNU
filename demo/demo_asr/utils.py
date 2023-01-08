@@ -5,7 +5,7 @@ from src.commu.client import SocketClient
 from src.language.question import Questions
 import json
 
-global_json_path = '../../环境变量.json'
+global_json_path = 'E:\\PycharmProjects\\ECNU\\环境变量.json'
 if os.path.exists(global_json_path):
     config_json_obj = json.load(open(global_json_path, 'r', encoding='utf-8'))
 else:
@@ -25,6 +25,8 @@ class GlobalStatus(object):
         self.sample_rate = config_json_obj.get('语音-采样频率', 16000)
         self.asr_record_duration = config_json_obj.get('语音-翻译间隔', 5)
         self.stop_threshold = config_json_obj.get('语音-安静阈值', 6000)
+        self.stop_sec_threshold = config_json_obj.get('语音-安静时长（单位秒）', 2)
+        self.think_sec_threshold = config_json_obj.get('语音-问题思考时间（单位秒）', 5)
         # self.send_msg_client = None
 
     def reset(self):

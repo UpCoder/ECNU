@@ -159,7 +159,7 @@ class Questions(object):
             return 21
         if cur_question_id == 20 or cur_question_id == 21:
             return 22
-        print(cur_question_id, 'not hit any branch, return default: 22')
+        print(cur_question_id, 'not hit any branch, return default: -2')
         return 22
 
 

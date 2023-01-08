@@ -86,7 +86,6 @@ def processing_pose_frame(frame, annotation_image, key_point_names, connections)
     x_ratio = origin_shape[0] / processing_shape[0]
     y_ratio = origin_shape[1] / processing_shape[1]
     image = cv2.resize(frame, processing_shape)
-    print(f'after resize: {time.time() - s_time}')
     # annotation_image = cv2.resize(annotation_image, processing_shape)
     image = transforms.ToTensor()(image)
     image = torch.tensor(np.array([image.numpy()]))
@@ -95,10 +94,8 @@ def processing_pose_frame(frame, annotation_image, key_point_names, connections)
         image = image.half().to(device)
     output, _ = model(image)
 
-    print(f'after resize inference: {time.time() - s_time}')
     s_time_nms = time.time()
     output = non_max_suppression_kpt(output, 0.25, 0.65, nc=1, nkpt=17, kpt_label=True)
-    print(f'after nms: {time.time() - s_time_nms}')
     with torch.no_grad():
         output = output_to_keypoint(output)
     # nimg = image[0].permute(1, 2, 0) * 255
@@ -121,7 +118,6 @@ def processing_pose_frame(frame, annotation_image, key_point_names, connections)
                            3,
                            np.shape(nimg),
                            draw_keypoints=key_point_names)
-        print(f'plot cost: {time.time() - s_time_plot}')
         coords = np.reshape(output[idx, 7:].T, [-1, 3])
         # print(f'coords: {coords}')
         for key_point_name, coord_info in zip(yolov7_skeleton_keypoint_names, coords):
@@ -136,7 +132,6 @@ def processing_pose_frame(frame, annotation_image, key_point_names, connections)
                     'score': score
                 }
     annotation_image = np.asarray(nimg).astype(np.uint8)
-    print(f'final cost: {time.time() - s_time}')
     # nimg = cv2.resize(nimg, origin_shape)
     return annotation_image, res_coords, None
 
