@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     face = FaceAnalyzer(args.width, args.height, recorder.q1)
     body = VideoProcessor(calc_frame_interval=10000000000,
-                          body_processor_method='light',
+                          body_processor_method='yolov7',
                           recorder_queue=recorder.q1)
 
     socket_client = SocketClient()

@@ -1,8 +1,8 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-# from demo.body_pix.keypoint_yolov7 import processing_pose_frame as processing_pose_frame_yolov7
-from demo_release import inference_frame_image as processing_pose_frame_light
+from demo.body_pix.keypoint_yolov7 import processing_pose_frame as processing_pose_frame_yolov7
+# from demo_release import inference_frame_image as processing_pose_frame_light
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_pose = mp.solutions.pose

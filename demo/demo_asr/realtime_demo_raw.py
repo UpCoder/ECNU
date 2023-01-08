@@ -116,11 +116,19 @@ class AudioASRRecord(object):
             # self.cur_question_answer += asr_result
             # TODO send msg
             if asr_result != '':
-                self.socket_client.send_asr_txt('被试：' + asr_result)
+                # self.socket_client.send_asr_txt('被试：' + asr_result)
                 self.add_recorder_msg(
                     {
                         'asr': '被试：' + asr_result
                     }
+                )
+                self.global_status.send_msg_client.send_message(
+                    json.dumps(
+                        {
+                            'dialogue': '被试：' + asr_result,
+                            **self.calc_metrics(True)
+                        }
+                    )
                 )
                 # self.global_status.send_msg_client.send_message(json.dumps(
                 #     {
@@ -145,8 +153,17 @@ class AudioASRRecord(object):
                 self.global_status.current_question_id = next_question_id
                 # self.global_status.current_question_id += 1
                 self.answers.append(Answer())
-                self.global_status.send_msg_client.send_asr_txt('虚拟人：' + self.global_status.questions.questions[
-                    self.global_status.current_question_id].content)
+                self.global_status.send_msg_client.send_message(
+                    json.dumps(
+                        {
+                            'dialogue': '虚拟人：' + self.global_status.questions.questions[
+                                self.global_status.current_question_id].content,
+                            **self.calc_metrics(True)
+                        }
+                    )
+                )
+                # self.global_status.send_msg_client.send_asr_txt('虚拟人：' + self.global_status.questions.questions[
+                #     self.global_status.current_question_id].content)
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(
                     {
@@ -206,46 +223,55 @@ class AudioASRRecord(object):
         return len(record_stop_durations_ms), record_stop_durations_ms
 
 
-    def calc_metrics(self):
+    def calc_metrics(self, default=False):
         """
         计算相关指标
         :return:
         """
-        # 计算响度
-        batch_size = self.answers[-2].cur_seconds // self.seconds
-        data = self.stop_records[len(self.stop_records) - batch_size:]
-        # data = [self.stop_records[-1]]
-        loudness = []
-        # 计算高音pitch
-        speech_pitch = -np.inf
-        speech_pause_count = 0
-        speech_pause_duration_ms = []
-        for single_record in data:
-            # print(single_record[np.where(single_record['record'] >= 0)])
-            loudness.append(np.mean(single_record['record']))
-            speech_pitch = max(speech_pitch, np.max(single_record['record']))
-            # 计算停顿次数
-            speech_pause_count_, speech_pause_duration_ms_ = self.calc_metrics_stop_interval(
-                single_record['record'], 300)
-            speech_pause_count += speech_pause_count_
-            speech_pause_duration_ms.extend(speech_pause_duration_ms_)
-        # 计算语速
-        speech_speed = len(self.answers[-2].cur_answer) / (self.answers[-2].cur_seconds * 60)
+        if not default:
+            # 计算响度
+            batch_size = self.answers[-2].cur_seconds // self.seconds
+            data = self.stop_records[len(self.stop_records) - batch_size:]
+            # data = [self.stop_records[-1]]
+            loudness = []
+            # 计算高音pitch
+            speech_pitch = -np.inf
+            speech_pause_count = 0
+            speech_pause_duration_ms = []
+            for single_record in data:
+                # print(single_record[np.where(single_record['record'] >= 0)])
+                loudness.append(np.mean(single_record['record']))
+                speech_pitch = max(speech_pitch, np.max(single_record['record']))
+                # 计算停顿次数
+                speech_pause_count_, speech_pause_duration_ms_ = self.calc_metrics_stop_interval(
+                    single_record['record'], 300)
+                speech_pause_count += speech_pause_count_
+                speech_pause_duration_ms.extend(speech_pause_duration_ms_)
+            # 计算语速
+            speech_speed = len(self.answers[-2].cur_answer) / (self.answers[-2].cur_seconds * 60)
 
-        # 计算说话时长
-        speech_length = self.answers[-2].cur_seconds
+            # 计算说话时长
+            speech_length = self.answers[-2].cur_seconds
 
-        # 计算音调变化
-        speech_tone = ''
-        metric_dict = {
-            'speech_tone': str(speech_tone),    # 音调变化
-            # 'speech_pause': str(speech_pause_count),  # 停顿次数
-            'speech_loudness': '{:.5f}'.format(np.mean(loudness)),  # 平均响度
-            'speech_speed': str(speech_speed),  # 语速
-            'speech_pitch': str(speech_pitch),  # 高音pitch
-            'speech_length': str(speech_length),    # 回答问题的时长
-            # 'speech_pause_duration': '{:.5f}'.format(np.sum(speech_pause_duration_ms))   # 停顿的总时长
-        }
+            # 计算音调变化
+            speech_tone = ''
+            metric_dict = {
+                'speech_tone': str(speech_tone),    # 音调变化
+                # 'speech_pause': str(speech_pause_count),  # 停顿次数
+                'speech_loudness': '{:.4f}'.format(np.mean(loudness)),  # 平均响度
+                'speech_speed': '{:.4f}'.format(speech_speed),  # 语速
+                'speech_pitch': '{:.4f}'.format(speech_pitch),  # 高音pitch
+                'speech_length': '{:.4f}'.format(speech_length),    # 回答问题的时长
+                # 'speech_pause_duration': '{:.5f}'.format(np.sum(speech_pause_duration_ms))   # 停顿的总时长
+            }
+        else:
+            metric_dict = {
+                'speech_tone': '',  # 音调变化
+                'speech_loudness': '',  # 平均响度
+                'speech_speed': '',
+                'speech_pitch': '',
+                'speech_length': ''
+            }
         print(f'metrics: {metric_dict}')
         return metric_dict
 
