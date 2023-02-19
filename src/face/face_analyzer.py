@@ -9,6 +9,10 @@ from face.landmark_utils import landmark_handler
 from face.expression_model.model import FacialExpressionModel
 from face.head_nod import NodDetecter
 
+from mediapipe.python.solutions import face_mesh_connections
+from mediapipe.python.solutions.drawing_utils import DrawingSpec
+import mediapipe.python.solutions.drawing_styles as ds
+
 font = cv2.FONT_HERSHEY_SIMPLEX
 
 class FaceAnalyzer(object):
@@ -69,14 +73,26 @@ class FaceAnalyzer(object):
     def draw_face(self, image):
         if not self.has_face:
             return image
-        # FaceMesh
-        self.mp_drawing.draw_landmarks(
-            image=image,
-            landmark_list=self.face_landmarks,
-            connections=self.mp_face_mesh.FACEMESH_TESSELATION,
-            landmark_drawing_spec=None,
-            connection_drawing_spec=self.mp_drawing_styles
-            .get_default_face_mesh_tesselation_style())
+
+        _FACEMESH_CONTOURS_CONNECTION_STYLE_2 = {
+            face_mesh_connections.FACEMESH_LIPS:
+                DrawingSpec(color=ds._WHITE, thickness=ds._THICKNESS_TESSELATION),
+            face_mesh_connections.FACEMESH_LEFT_EYE:
+                DrawingSpec(color=ds._WHITE, thickness=ds._THICKNESS_TESSELATION),
+            face_mesh_connections.FACEMESH_LEFT_EYEBROW:
+                DrawingSpec(color=ds._WHITE, thickness=ds._THICKNESS_TESSELATION),
+            face_mesh_connections.FACEMESH_RIGHT_EYE:
+                DrawingSpec(color=ds._WHITE, thickness=ds._THICKNESS_TESSELATION),
+            face_mesh_connections.FACEMESH_RIGHT_EYEBROW:
+                DrawingSpec(color=ds._WHITE, thickness=ds._THICKNESS_TESSELATION),
+            face_mesh_connections.FACEMESH_FACE_OVAL:
+                DrawingSpec(color=ds._WHITE, thickness=ds._THICKNESS_TESSELATION)
+        }
+
+        face_style = {}
+        for k, v in _FACEMESH_CONTOURS_CONNECTION_STYLE_2.items():
+            for connection in k:
+                face_style[connection] = v
 
         # 轮廓
         self.mp_drawing.draw_landmarks(
@@ -84,16 +100,49 @@ class FaceAnalyzer(object):
             landmark_list=self.face_landmarks,
             connections=self.mp_face_mesh.FACEMESH_CONTOURS,
             landmark_drawing_spec=None,
-            connection_drawing_spec=self.mp_drawing_styles
-            .get_default_face_mesh_contours_style())
+            connection_drawing_spec=face_style)
+
+        iris_style = {}
+        left_spec = DrawingSpec(color=ds._RED, thickness=ds._THICKNESS_TESSELATION)
+        for connection in face_mesh_connections.FACEMESH_LEFT_IRIS:
+            iris_style[connection] = left_spec
+        right_spec = DrawingSpec(color=ds._RED, thickness=ds._THICKNESS_TESSELATION)
+        for connection in face_mesh_connections.FACEMESH_RIGHT_IRIS:
+            iris_style[connection] = right_spec
+
         ## 虹膜
         self.mp_drawing.draw_landmarks(
             image=image,
             landmark_list=self.face_landmarks,
             connections=self.mp_face_mesh.FACEMESH_IRISES,
             landmark_drawing_spec=None,
-            connection_drawing_spec=self.mp_drawing_styles
-            .get_default_face_mesh_iris_connections_style())
+            connection_drawing_spec=iris_style)
+
+        # FaceMesh
+        # self.mp_drawing.draw_landmarks(
+        #     image=image,
+        #     landmark_list=self.face_landmarks,
+        #     connections=self.mp_face_mesh.FACEMESH_TESSELATION,
+        #     landmark_drawing_spec=None,
+        #     connection_drawing_spec=self.mp_drawing_styles
+        #     .get_default_face_mesh_tesselation_style())
+        #
+        # # 轮廓
+        # self.mp_drawing.draw_landmarks(
+        #     image=image,
+        #     landmark_list=self.face_landmarks,
+        #     connections=self.mp_face_mesh.FACEMESH_CONTOURS,
+        #     landmark_drawing_spec=None,
+        #     connection_drawing_spec=self.mp_drawing_styles
+        #     .get_default_face_mesh_contours_style())
+        # ## 虹膜
+        # self.mp_drawing.draw_landmarks(
+        #     image=image,
+        #     landmark_list=self.face_landmarks,
+        #     connections=self.mp_face_mesh.FACEMESH_IRISES,
+        #     landmark_drawing_spec=None,
+        #     connection_drawing_spec=self.mp_drawing_styles
+        #     .get_default_face_mesh_iris_connections_style())
         return image
 
 
