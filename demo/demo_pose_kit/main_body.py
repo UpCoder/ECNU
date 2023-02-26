@@ -171,17 +171,90 @@ def create_plot(classifier_labels, prediction_probabilities, save_url):
     plt.close(fig)
 
 
+def getLengthLimb(data, keypoint1: int, keypoint2: int):
+    if data[keypoint1, 2] > 0.0 and data[keypoint2, 2] > 0:
+        return np.linalg.norm([data[keypoint1, 0:2] - data[keypoint2, 0:2]])
+    return 0
+
+
+def getBodyData(datum, personID=0):
+
+    outputArray = None
+    accuaracyScore = 0.0
+    if datum.poseKeypoints is not None and len(datum.poseKeypoints.shape) > 0:
+
+        # Read body data
+        outputArray = datum.poseKeypoints[personID]
+        accuaracyScore = outputArray[:, 2].sum()
+
+        # Find bouding box
+        min_x, max_x = float("inf"), 0.0
+        min_y, max_y = float("inf"), 0.0
+        for keypoint in outputArray:
+            if keypoint[2] > 0.0:  # If keypoint exists in image
+                min_x = min(min_x, keypoint[0])
+                max_x = max(max_x, keypoint[0])
+                min_y = min(min_y, keypoint[1])
+                max_y = max(max_y, keypoint[1])
+
+        # Centering
+        np.subtract(
+            outputArray[:, 0],
+            (min_x + max_x) / 2,
+            where=outputArray[:, 2] > 0.0,
+            out=outputArray[:, 0],
+        )
+        np.subtract(
+            (min_y + max_y) / 2,
+            outputArray[:, 1],
+            where=outputArray[:, 2] > 0.0,
+            out=outputArray[:, 1],
+        )
+
+        # Scaling
+        normalizedPartsLength = np.array(
+            [
+                getLengthLimb(outputArray, 1, 8) * (16.0 / 5.2),  # Torso
+                getLengthLimb(outputArray, 0, 1) * (16.0 / 2.5),  # Neck
+                getLengthLimb(outputArray, 9, 10) * (16.0 / 3.6),  # Right thigh
+                getLengthLimb(outputArray, 10, 11)
+                * (16.0 / 3.5),  # Right lower leg
+                getLengthLimb(outputArray, 12, 13) * (16.0 / 3.6),  # Left thigh
+                getLengthLimb(outputArray, 13, 14) * (16.0 / 3.5),  # Left lower leg
+                getLengthLimb(outputArray, 2, 5) * (16.0 / 3.4),  # Shoulders
+            ]
+        )
+
+        # Mean of non-zero values
+        normalizedPartsLength = normalizedPartsLength[normalizedPartsLength > 0.0]
+        if len(normalizedPartsLength) > 0:
+            scaleFactor = np.mean(normalizedPartsLength)
+        else:
+            # print("Scaling error")
+            return None, 0.0
+
+        np.divide(outputArray[:, 0:2], scaleFactor, out=outputArray[:, 0:2])
+
+        if np.any((outputArray > 1.0) | (outputArray < -1.0)):
+            # print("Scaling error")
+            return None, 0.0
+
+        outputArray = outputArray.T
+
+    return outputArray, accuaracyScore
+
+
 def run_cam():
-    # current_path = 'C:\\Users\\30644\\.conda\\envs\\pose_kit\\Lib\\site-packages\\pose_classification_kit\\models\\' \
-    #                'Body\\9Class_3x64_BODY25'
-    # body_classifier = tf.keras.models.load_model(
-    #     os.path.join(current_path, '9Classes_3x64_body25.h5')
-    # )
     current_path = 'C:\\Users\\30644\\.conda\\envs\\pose_kit\\Lib\\site-packages\\pose_classification_kit\\models\\' \
-                   'Body\\9Class_3x64_BODY18'
+                   'Body\\9Class_3x64_BODY25'
     body_classifier = tf.keras.models.load_model(
-        os.path.join(current_path, '9Classes_3x64_body18.h5')
+        os.path.join(current_path, '9Classes_3x64_body25.h5')
     )
+    # current_path = 'C:\\Users\\30644\\.conda\\envs\\pose_kit\\Lib\\site-packages\\pose_classification_kit\\models\\' \
+    #                'Body\\9Class_3x64_BODY18'
+    # body_classifier = tf.keras.models.load_model(
+    #     os.path.join(current_path, '9Classes_3x64_body18.h5')
+    # )
     # current_path = 'C:\\Users\\30644\\.conda\\envs\\pose_kit\\Lib\\site-packages\\pose_classification_kit\\models\\' \
     #                'Body\\20Class_CNN_BODY25'
     # body_classifier = tf.keras.models.load_model(
@@ -269,21 +342,28 @@ def run_cam():
         else:
             break
         wrists_positions = [(0, 0), (0, 0)]
+        if datum.poseKeypoints is None:
+            print('datum.poseKeypoints is None')
+            continue
         if datum.poseKeypoints.ndim > 1:
             body_keypoints = np.array(datum.poseKeypoints[0])
             wrists_positions = [
-                (body_keypoints[7][0], body_keypoints[7][1]),
-                (body_keypoints[4][0], body_keypoints[4][1]),
+                (body_keypoints[0][0], body_keypoints[0][1]),
+                (body_keypoints[0][0], body_keypoints[0][1]),
             ]
-        print('body_keypoints shape: ', body_keypoints.shape)
+            bodyKeypoints, _ = getBodyData(datum, 0)
+        if bodyKeypoints is None:
+            print('bodyKeypoints is None, continue')
+            continue
+        print('body_keypoints shape: ', bodyKeypoints.shape)
         if currentBodyModel == BODY25:
-            inputData = body_keypoints[:, :2]
+            inputData = bodyKeypoints[:2].T
         elif currentBodyModel == BODY25_FLAT:
-            inputData = np.concatenate(body_keypoints[:, :2], axis=0)
+            inputData = np.concatenate(bodyKeypoints[:2].T, axis=0)
         elif currentBodyModel == BODY18:
-            inputData = body_keypoints[BODY25_to_BODY18_indices][:, :2]
+            inputData = bodyKeypoints.T[BODY25_to_BODY18_indices][:, :2]
         elif currentBodyModel == BODY18_FLAT:
-            inputData = np.concatenate(body_keypoints[BODY25_to_BODY18_indices][:, :2], axis=0)
+            inputData = np.concatenate(bodyKeypoints.T[BODY25_to_BODY18_indices][:, :2], axis=0)
         else:
             raise ValueError('do not support')
         try:
