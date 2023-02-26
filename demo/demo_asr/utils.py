@@ -4,6 +4,7 @@ import os
 from src.commu.client import SocketClient
 from src.language.question import Questions
 import json
+import pyaudio
 
 global_json_path = 'E:\\PycharmProjects\\ECNU\\环境变量.json'
 if os.path.exists(global_json_path):
@@ -14,6 +15,7 @@ else:
 
 class GlobalStatus(object):
     def __init__(self, ip, port):
+        audio_device = AudioDevice()
         self.current_question_id = -1
         self.stop_in_listen = False
         self.asr_in_listen = False
@@ -27,6 +29,7 @@ class GlobalStatus(object):
         self.stop_threshold = config_json_obj.get('语音-安静阈值', 6000)
         self.stop_sec_threshold = config_json_obj.get('语音-安静时长（单位秒）', 2)
         self.think_sec_threshold = config_json_obj.get('语音-问题思考时间（单位秒）', 5)
+        self.audio_channel = audio_device.num_channel
         # self.send_msg_client = None
 
     def reset(self):
@@ -76,5 +79,13 @@ def audio_receive_message(conn, audio_processor_obj, global_status:GlobalStatus)
             audio_processor_obj.reset()
 
 
+class AudioDevice(object):
+    def __init__(self):
+        obj = pyaudio.PyAudio().get_default_input_device_info()
+        self.num_channel = obj['maxInputChannels']
+        print(self.num_channel)
+
+
 if __name__ == '__main__':
-    print(config_json_obj)
+    # print(config_json_obj)
+    device = AudioDevice()

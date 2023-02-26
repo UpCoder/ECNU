@@ -12,7 +12,6 @@ from multiprocessing import Process, Queue
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f'device: {device}')
 # weigths = torch.load('yolov7-w6-pose.pt', map_location=device)
 weigths = torch.load('E:\\PycharmProjects\\ECNU\\demo\\body_pix\\yolov7-w6-pose.pt', map_location=device)
 model = weigths['model']
@@ -108,9 +107,11 @@ def processing_pose_frame(frame, annotation_image, key_point_names, connections)
     res_coords = {}
     for idx in range(output.shape[0]):
         coords_origin = output[idx, 7:].T
+        coords_origin_list = []
         for idx_ in range(0, len(coords_origin), 3):
             coords_origin[idx_] = coords_origin[idx_] * y_ratio
             coords_origin[idx_+1] = coords_origin[idx_+1] * x_ratio
+            coords_origin_list.append((coords_origin[idx_], coords_origin[idx_ + 1], coords_origin[idx_+2]))
         s_time_plot = time.time()
         plot_skeleton_kpts(nimg,
                            # output[idx, 7:].T,
@@ -118,11 +119,15 @@ def processing_pose_frame(frame, annotation_image, key_point_names, connections)
                            3,
                            np.shape(nimg),
                            draw_keypoints=key_point_names)
-        coords = np.reshape(output[idx, 7:].T, [-1, 3])
+        # coords = np.reshape(output[idx, 7:].T, [-1, 3])
         # print(f'coords: {coords}')
-        for key_point_name, coord_info in zip(yolov7_skeleton_keypoint_names, coords):
-            x = coord_info[0] / processing_shape[0]
-            y = coord_info[1] / processing_shape[1]
+        for key_point_name, coord_info in zip(yolov7_skeleton_keypoint_names, coords_origin_list):
+            # x = coord_info[0] / processing_shape[1]
+            # y = coord_info[1] / processing_shape[0]
+            # x = coord_info[0] * y_ratio
+            # y = coord_info[1] * x_ratio
+            x = coord_info[0]
+            y = coord_info[1]
             score = coord_info[2]
             if score > 0.5:
                 res_coords[key_point_name] = {
@@ -305,7 +310,6 @@ def non_max_suppression_kpt(prediction, conf_thres=0.25, iou_thres=0.45, classes
     """
     if nc is None:
         nc = prediction.shape[2] - 5 if not kpt_label else prediction.shape[2] - 56 # number of classes
-    print(prediction.shape)
     # xc = prediction[..., 4] > conf_thres  # candidates
     xc = prediction[:, :, 4] > conf_thres
 

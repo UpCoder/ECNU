@@ -42,12 +42,10 @@ if __name__ == '__main__':
         start_time = time.time()
         ret_flag, im_row = camera.video_capure.read()
         # im_row = cv2.imread('demo.jpg')
-        print('camera caption cost:', time.time() - start_time)
         im_row = im_row[:480, 150:150 + 340]
 
         im_rd = im_row.copy()
         im_rd1 = im_row.copy()
-        print(im_rd.shape)
 
         face.start(im_rd)
         # image = im_rd
@@ -71,7 +69,6 @@ if __name__ == '__main__':
         send_time = time.time()
         if args.send_data:
             socket_client.send_image(image, infos)
-        print('send_data cost:', time.time() - send_time)
 
         if not args.send_data:
             """
@@ -82,9 +79,9 @@ if __name__ == '__main__':
             if k == ord('q'):
                 break
 
-        print('Single frame cost: ', time.time() - start_time)
-        print('fps: {}'.format(1 / (time.time() - start_time)))
-        print('######'*5)
+        # print('Single frame cost: ', time.time() - start_time)
+        # print('fps: {}'.format(1 / (time.time() - start_time)))
+        # print('######'*5)
 
 
     camera.video_capure.release()

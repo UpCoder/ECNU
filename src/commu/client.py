@@ -36,7 +36,7 @@ class SocketClient(object):
         packed_data = {}
         for attr in VisionAttr:
             packed_data[attr] = str(infos.get(attr, ""))[:6]
-        print(packed_data)
+        # print(packed_data)
         packed_data["data"] = image_code
         return json.dumps(packed_data)
 
@@ -47,8 +47,6 @@ class SocketClient(object):
             self.socket_client.send(packed_data.encode())
         except Exception as e:
             print(e)
-        else:
-            print("Send done.")
 
     def send_asr_txt(self, asr_txt):
         try:
@@ -57,16 +55,12 @@ class SocketClient(object):
             }).encode())
         except Exception as e:
             print(e)
-        else:
-            print('Send Done.')
 
-    def send_message(self, messages):
+    def send_message(self, messages, is_binary=False):
         try:
-            self.socket_client.send(messages.encode('utf-8'))
+            self.socket_client.send(messages.encode('utf-8') if not is_binary else messages)
         except Exception as e:
             print(e)
-        else:
-            print('Send Done.')
 
     def send_image_from_path(self, image_path):
         img = cv2.imread(image_path)

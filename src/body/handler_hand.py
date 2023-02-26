@@ -47,7 +47,7 @@ def processing_frame(image, annotation_image=None,
                 annotation_image,
                 hand_landmarks,
                 mp_hands.HAND_CONNECTIONS,
-                mp_drawing_styles.get_default_hand_landmarks_style(),
+                None, # mp_drawing_styles.get_default_hand_landmarks_style(),
                 mp_drawing_styles.get_default_hand_connections_style())
     annotation_image = np.asarray(annotation_image).astype(np.uint8)
     return annotation_image, left_hand_coords, right_hand_coords, results
@@ -64,8 +64,8 @@ def preprocessing_image_demo(image, is_path=True, coord_names=[]):
             image = image[:, :, ::-1]
             # Convert the BGR image to RGB before processing.
         results = hands.process(image)
-        print('Handedness:', results.multi_handedness)
-        print('Handedness:', results.multi_hand_landmarks)
+        # print('Handedness:', results.multi_handedness)
+        # print('Handedness:', results.multi_hand_landmarks)
         if not results.multi_hand_landmarks:
             return
         image_height, image_width, _ = image.shape

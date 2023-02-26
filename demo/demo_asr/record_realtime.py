@@ -358,7 +358,7 @@ class AudioRecorderProcessor:
                 continue
             cur_asr_result, merged_asr_result = self.get_asr_result_core(self.qa_data.frames_qa_format[-1])
             self.qa_data.processed_chunk_idx += 1
-            print(f'cur_asr_result: {cur_asr_result}\nmerged_asr_result: {merged_asr_result}')
+            # print(f'cur_asr_result: {cur_asr_result}\nmerged_asr_result: {merged_asr_result}')
             self.qa_data.current_answer_results.append(cur_asr_result)
             self.qa_data.current_merged_results.append(merged_asr_result)
             self.qa_data.merged_asr_results_qa_format[-1].append(merged_asr_result)
@@ -547,7 +547,8 @@ class AudioRecorderProcessor:
     @staticmethod
     def start_test_pipeline():
         global_status = GlobalStatus('localhost', 8889)
-        recorder = AudioRecorderProcessor(max_asr_window=30, global_status=global_status)
+        num_channels = 1
+        recorder = AudioRecorderProcessor(max_asr_window=30, global_status=global_status, channels=num_channels)
         global_status.asr_in_listen = True
         global_status.stop_in_listen = True
         global_status.is_stop = False

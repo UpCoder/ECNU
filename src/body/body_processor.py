@@ -214,19 +214,19 @@ class BodyInfoSingle(object):
             'z': np.mean([coord_info['RIGHT_ELBOW']['z'] for coord_info in coords]),
         }
         obj.body_coord = {
-            'x': np.mean([obj.left_shoulder_coord['x'], obj.right_shoulder_coord['x']]),
-            'y': np.mean([obj.left_shoulder_coord['y'], obj.right_shoulder_coord['y']]),
-            'z': np.mean([obj.left_shoulder_coord['z'], obj.right_shoulder_coord['z']]),
+            'x': np.mean([(coord_info['LEFT_SHOULDER']['x'] + coord_info['RIGHT_SHOULDER']['x']) / 2 for coord_info in coords]),
+            'y': np.mean([(coord_info['LEFT_SHOULDER']['y'] + coord_info['RIGHT_SHOULDER']['y']) / 2 for coord_info in coords]),
+            'z': np.mean([(coord_info['LEFT_SHOULDER']['z'] + coord_info['RIGHT_SHOULDER']['z']) / 2 for coord_info in coords]),
         }
         obj.left_arm_coord = {
-            'x': np.mean([obj.left_shoulder_coord['x'], obj.left_elbow_coord['x']]),
-            'y': np.mean([obj.left_shoulder_coord['y'], obj.left_elbow_coord['y']]),
-            'z': np.mean([obj.left_shoulder_coord['z'], obj.left_elbow_coord['z']]),
+            'x': np.mean([(coord_info['LEFT_ELBOW']['x'] + coord_info['LEFT_SHOULDER']['x']) / 2 for coord_info in coords]),
+            'y': np.mean([(coord_info['LEFT_ELBOW']['y'] + coord_info['LEFT_SHOULDER']['y']) / 2 for coord_info in coords]),
+            'z': np.mean([(coord_info['LEFT_ELBOW']['z'] + coord_info['LEFT_SHOULDER']['z']) / 2 for coord_info in coords]),
         }
         obj.right_arm_coord = {
-            'x': np.mean([obj.right_shoulder_coord['x'], obj.right_elbow_coord['x']]),
-            'y': np.mean([obj.right_shoulder_coord['y'], obj.right_elbow_coord['y']]),
-            'z': np.mean([obj.right_shoulder_coord['z'], obj.right_elbow_coord['z']]),
+            'x': np.mean([(coord_info['RIGHT_ELBOW']['x'] + coord_info['RIGHT_SHOULDER']['x']) / 2 for coord_info in coords]),
+            'y': np.mean([(coord_info['RIGHT_ELBOW']['y'] + coord_info['RIGHT_SHOULDER']['y']) / 2 for coord_info in coords]),
+            'z': np.mean([(coord_info['RIGHT_ELBOW']['z'] + coord_info['RIGHT_SHOULDER']['z']) / 2 for coord_info in coords]),
         }
         return obj
 
@@ -282,7 +282,9 @@ class BodyInfo(object):
         right_arm_left_right = []   # 右胳膊向左移动还是向右移动
         right_arm_distance = []     # 右胳膊移动的距离
         body_width_avg = [abs(last_info.left_shoulder_coord[axis_name] - last_info.right_shoulder_coord[axis_name])]
+        # 遍历所有的记录格式
         for cur_body_info in self.body_info_window_avg[1:]:
+            # print('shoulder axis: ', cur_body_info.left_shoulder_coord, cur_body_info.right_shoulder_coord)
             body_width_avg.append(abs(cur_body_info.left_shoulder_coord[axis_name] -
                                       cur_body_info.right_shoulder_coord[axis_name]))
             if cur_body_info.body_coord[axis_name] > last_info.body_coord[axis_name]:
@@ -304,11 +306,13 @@ class BodyInfo(object):
             right_arm_distance.append(abs(cur_body_info.right_arm_coord[axis_name] -
                                           last_info.right_arm_coord[axis_name]))
             last_info = cur_body_info
-        body_swing_threshold = np.mean(body_width_avg) * 0.2
+
+        body_swing_threshold = np.mean(body_width_avg) * 0.1
         # print(f'body_swing_threshold: {body_swing_threshold}')
 
-        left_arm_swing_threshold = np.mean(body_width_avg) * 0.1
-        right_arm_swing_threshold = np.mean(body_width_avg) * 0.1
+        left_arm_swing_threshold = np.mean(body_width_avg) * 0.05
+        right_arm_swing_threshold = np.mean(body_width_avg) * 0.05
+        # print(f'left_arm_swing_threshold: {left_arm_swing_threshold}')
 
         # 计算身体摆动的次数
         # print(f'body left/right: {body_left_right}')
@@ -321,6 +325,7 @@ class BodyInfo(object):
             move_distance = max(body_distances_merge[idx-1], body_distances_merge[idx])
             if move_distance >= body_swing_threshold:
                 count_body_swing += 1
+        # print(f'body 摆动, {count_body_swing}')
 
         # 计算左胳膊摆动的次数
         # print(f'left arm left/right: {left_arm_left_right}')
@@ -331,7 +336,7 @@ class BodyInfo(object):
             move_distance = max(left_arm_distances_merge[idx - 1], left_arm_distances_merge[idx])
             if move_distance >= left_arm_swing_threshold:
                 count_left_arm_swing += 1
-
+        # print(f'count_left_arm_swing 摆动, {count_left_arm_swing}')
         # 计算右胳膊摆动的次数
         # print(f'right arm left/right: {right_arm_left_right}')
         # print(f'right arm distances: {right_arm_distance}')
@@ -343,7 +348,7 @@ class BodyInfo(object):
             move_distance = max(right_arm_distances_merge[idx - 1], right_arm_distances_merge[idx])
             if move_distance >= right_arm_swing_threshold:
                 count_right_arm_swing += 1
-
+        # print(f'count_right_arm_swing 摆动, {count_right_arm_swing}')
         return {
             'body_swing': str(count_body_swing),
             'body_arm_swing': str(count_left_arm_swing + count_right_arm_swing),
@@ -574,19 +579,19 @@ if __name__ == '__main__':
     camera.set_size(640, 480)
     print('step: 1')
     body_yolo = VideoProcessor(body_processor_method='yolov7')
-    body_mp = VideoProcessor(body_processor_method='mediapipe')
+    # body_mp = VideoProcessor(body_processor_method='mediapipe')
 
     while camera.video_capure.isOpened():
         start_time = time.time()
         ret_flag, im_row = camera.video_capure.read()
-        print('camera caption cost:', time.time() - start_time)
+        # print('camera caption cost:', time.time() - start_time)
         im_row = im_row[:480, 150:150 + 340]
 
         im_rd = im_row.copy()
         im_rd1 = im_row.copy()
         im_rd2 = im_row.copy()
         im_rd3 = im_row.copy()
-        print(im_rd.shape)
+        # print(im_rd.shape)
 
         # image, image_with_metrics, body_info = body_yolo.processing_frame(im_rd, im_rd1)
         # infos = {
@@ -597,16 +602,20 @@ if __name__ == '__main__':
         # cv2.imshow("yolo", image_with_metrics)
         # cv2.imshow("mp", image_with_metrics_)
         body_yolo.start_processing_frame_thread(im_rd, im_rd1, True)
-        body_mp.start_processing_frame_thread(im_rd2, im_rd3, True)
+        # body_mp.start_processing_frame_thread(im_rd2, im_rd3, True)
 
         body_yolo.wait_processing_frame_thread()
-        body_mp.wait_processing_frame_thread()
-        cv2.imshow("yolo", body_yolo.processing_frame_result['annotation_image'])
-        cv2.imshow("mp", body_mp.processing_frame_result['annotation_image'])
+        # body_mp.wait_processing_frame_thread()
+        print(np.shape(body_yolo.processing_frame_result['annotation_image']))
+        zero_ = np.zeros([800, 800, 3], np.uint8)
+        zero_[100:580, 100:440, :] = body_yolo.processing_frame_result['annotation_image']
+        # cv2.imshow("yolo", body_yolo.processing_frame_result['annotation_image'])
+        cv2.imshow("yolo", zero_)
+        # cv2.imshow("mp", body_mp.processing_frame_result['annotation_image'])
         k = cv2.waitKey(1)
 
-        print('Single frame cost:', time.time() - start_time)
-        print('######' * 5)
+        # print('Single frame cost:', time.time() - start_time)
+        # print('######' * 5)
         if k == ord('q'):
             break
 

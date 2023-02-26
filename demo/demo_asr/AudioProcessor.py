@@ -45,17 +45,25 @@ class AudioProcessor(object):
         self.audio_recorder_processor_object.start_realtime_recording_thread()
 
     def reset(self):
-        self.audio_asr_object = AudioASRRecord(self.sample_rate, record_duration=self.asr_record_duration,
-                                               n_channels=self.n_channels,
-                                               global_status=self.global_status,
-                                               recorder_queue=self.recorder_queue)
-        self.audio_stop_object = AudioStopRecord(self.sample_rate, self.stop_record_duration, self. n_channels,
-                                                 self.stop_interval, self.stop_threshold,
-                                                 global_status=self.global_status)
+        # self.audio_asr_object = AudioASRRecord(self.sample_rate, record_duration=self.asr_record_duration,
+        #                                        n_channels=self.n_channels,
+        #                                        global_status=self.global_status,
+        #                                        recorder_queue=self.recorder_queue)
+        # self.audio_stop_object = AudioStopRecord(self.sample_rate, self.stop_record_duration, self. n_channels,
+        #                                          self.stop_interval, self.stop_threshold,
+        #                                          global_status=self.global_status)
         # 开启监听
-        # self.audio_stop_object.start_listen_is_stop_thread()
-        self.audio_asr_object.start_get_asr_result_thread()
-        self.audio_asr_object.start_realtime_recording_thread()
+        # self.audio_asr_object.start_get_asr_result_thread()
+        # self.audio_asr_object.start_realtime_recording_thread()
+        self.audio_recorder_processor_object = AudioRecorderProcessor(
+            rate=self.sample_rate, channels=self.n_channels, global_status=global_status,
+            recorder_queue=self.recorder_queue, stop_sec_threshold=global_status.stop_sec_threshold,
+            stop_value_threshold=global_status.stop_threshold,
+            think_sec_threshold=global_status.think_sec_threshold
+        )
+        self.audio_recorder_processor_object.start_get_asr_result_thread()
+        self.audio_recorder_processor_object.start_realtime_recording_thread()
+
 
 
 def start_pipeline(recorder_queue: queue.Queue = None):
@@ -88,7 +96,7 @@ def start_pipeline(recorder_queue: queue.Queue = None):
     audio_processor = AudioProcessor(
         sample_rate=global_status.sample_rate,
         asr_record_duration=global_status.asr_record_duration,
-        stop_record_duration=1, n_channels=2,
+        stop_record_duration=1, n_channels=global_status.audio_channel,
         stop_interval=3, stop_threshold=global_status.stop_threshold,
         global_status=global_status, recorder_queue=recorder_queue
     )
