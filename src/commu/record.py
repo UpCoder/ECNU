@@ -35,7 +35,8 @@ class Recorder(object):
                         if type(text_log) == str:
                             f.write(text_log+'\n')
                         elif type(text_log) == dict:
-                            text_log['timestamp'] = time.time()
+                            if 'timestamp' not in text_log:
+                                text_log['timestamp'] = time.time()
                             origin = text_log.get('origin', None)
                             if origin is None or origin == 'body' or origin == 'face':
                                 for key in text_log.keys():

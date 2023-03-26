@@ -20,4 +20,4 @@ class FacialExpressionModel(object):
 
     def predict_emotion(self, img):
         self.preds = self.loaded_model.predict(img)
-        return FacialExpressionModel.EMOTIONS_LIST[np.argmax(self.preds)], self.preds[0][np.argmax(self.preds)]
+        return FacialExpressionModel.EMOTIONS_LIST[np.argmax(self.preds)], self.preds[0][np.argmax(self.preds)], self.preds[0]

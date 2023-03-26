@@ -1,9 +1,13 @@
 import cv2
 
 class Camera(object):
-    def __init__(self, width=1280, height=960):
+    def __init__(self, width=1280, height=960, video_path=None):
         self.width, self.height = width, height
-        self.video_capure = cv2.VideoCapture(0)
+        if video_path is None:
+            self.video_capure = cv2.VideoCapture(0)
+        else:
+            self.video_capure = cv2.VideoCapture(video_path)
+
 
     def find_camera(self):
         for idx in range(1000):

@@ -14,7 +14,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Demo')
     parser.add_argument('--width', type=int, default=640)
     parser.add_argument('--height', type=int, default=480)
-    parser.add_argument('--send_data', type=bool, default=True)
+    parser.add_argument('--send_data', type=bool, default=False)
     parser.add_argument('--host', type=str, default="localhost")
     parser.add_argument('--port', type=int, default=8888)
     parser.add_argument('--record_file_dir', type=str, default='./')
@@ -49,12 +49,13 @@ if __name__ == '__main__':
 
         face.start(im_rd)
         # image = im_rd
-        # image, _, body_info = body.processing_frame(im_rd1, im_rd1, need_info=True)
+        #image, _, body_info = body.processing_frame(im_rd1, im_rd1, need_info=True)
         body.start_processing_frame_thread(im_rd1, im_rd1, True)
 
         face.wait()
         body.wait_processing_frame_thread()
         image = body.processing_frame_result['annotation_image']
+        # image = im_rd1
         face.draw_face(image)
 
         infos = {
@@ -79,8 +80,8 @@ if __name__ == '__main__':
             if k == ord('q'):
                 break
 
-        # print('Single frame cost: ', time.time() - start_time)
-        # print('fps: {}'.format(1 / (time.time() - start_time)))
+        print('Single frame cost: ', time.time() - start_time)
+        print('fps: {}'.format(1 / (time.time() - start_time)))
         # print('######'*5)
 
 

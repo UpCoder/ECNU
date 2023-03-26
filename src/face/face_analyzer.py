@@ -8,6 +8,7 @@ import threading
 from face.landmark_utils import landmark_handler
 from face.expression_model.model import FacialExpressionModel
 from face.head_nod import NodDetecter
+from face.FAU_recog import facial_action_unit_recog
 
 from mediapipe.python.solutions import face_mesh_connections
 from mediapipe.python.solutions.drawing_utils import DrawingSpec
@@ -47,10 +48,17 @@ class FaceAnalyzer(object):
         self.expression = ""
         self.smile_score = 0
         self.frown_score = 0
+        self.au = []
+        self.expression_interval = 3
+        self.scores_array = None
 
         # nod detect
         self.nod_cnt = 0
         self.nod_detecter = NodDetecter(10)
+
+        # face fau
+        self.count_idx = 0
+        self.fau_interval = 10
 
         self.record_queue = queue
 
@@ -73,6 +81,10 @@ class FaceAnalyzer(object):
     def draw_face(self, image):
         if not self.has_face:
             return image
+
+        # self._put_text(image, "expression" , self.expression)
+        # self._put_text(image, "smile_score", "{:.2f}".format(self.smile_score))
+        # self._put_text(image, "frown_score", "{:.2f}".format(self.frown_score))
 
         _FACEMESH_CONTOURS_CONNECTION_STYLE_2 = {
             face_mesh_connections.FACEMESH_LIPS:
@@ -174,6 +186,7 @@ class FaceAnalyzer(object):
 
     def face_infer(self):
         try:
+            self.count_idx += 1
             start_time = time.time()
             raw_image = self.image
             self.set_size(raw_image.shape[1], raw_image.shape[0])
@@ -202,16 +215,41 @@ class FaceAnalyzer(object):
                 expression_start_time = time.time()
                 face_rect = self.face_rect_by_landmark(self.landmark_3d)
                 face_img = raw_image[face_rect[2]:face_rect[3], face_rect[0]:face_rect[1]]
+
+                if self.count_idx % self.fau_interval == 0:
+                    try:
+                        self.au = facial_action_unit_recog(face_img)
+                    except Exception as e:
+                        print("FAU ERROR:", e)
+                        self.au = []
+                    print("FAU:", self.au)
+                    if len(self.au) > 0:
+                        for idx, au_i in enumerate(self.au):
+                            self.infos[f'au_{idx}'] = au_i
+
                 face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
                 face_img = cv2.resize(face_img, (48, 48))
-                pred, score = self.expression_model.predict_emotion(face_img[np.newaxis, :, :, np.newaxis])
-                self.expression = pred
+                pred, score, score_list = self.expression_model.predict_emotion(face_img[np.newaxis, :, :, np.newaxis])
+
                 self.smile_score = 0
                 self.frown_score = 0
                 if pred == 'Happy':
-                    self.smile_score = max((score-0.5)*2, 0)
+                    self.smile_score = max((score - 0.5) * 2, 0)
                 elif pred == 'Angry' or pred == 'Sad':
                     self.frown_score = score
+
+                if self.count_idx % self.expression_interval == 0:
+                    self.scores_array = self.scores_array / self.expression_interval
+                    pred, score = FacialExpressionModel.EMOTIONS_LIST[np.argmax(self.scores_array)], self.scores_array[np.argmax(self.scores_array)]
+                    self.expression = pred
+
+                    self.scores_array = None
+                else:
+                    if self.scores_array is None:
+                        self.scores_array = score_list
+                    else:
+                        self.scores_array += score_list
+
                 # self.infos['origin'] = 'face'
                 self.infos['face_expression'] = self.expression
                 self.infos['face_smile'] = self.smile_score
@@ -227,7 +265,7 @@ class FaceAnalyzer(object):
                 # self._put_text(draw_image, "H_orient", "{:4.2f}".format(infos["H_orient"]))
                 # self._put_text(draw_image, "V_orient", "{:4.2f}".format(infos["V_orient"]))
                 # self._put_text(draw_image, "Nod", str(self.nod_cnt))
-                self.record_queue.put(self.infos)
+                # self.record_queue.put(self.infos)
             else:
                 self.has_face = False
 

@@ -541,9 +541,9 @@ class VideoProcessor(object):
             'annotation_image_txt': annotation_image_txt,
             'metrics': body_hand_metrics
         }
-        self.add_recorder_msg(
-            body_hand_metrics
-        )
+        # self.add_recorder_msg(
+        #     body_hand_metrics
+        # )
         return annotation_image, annotation_image_txt, body_hand_metrics
 
     def put_txts(self, frame, txts, start_loc, line_width, font=cv2.FONT_HERSHEY_SIMPLEX):
