@@ -1,7 +1,13 @@
+from demo.demo_tts.online import tts_http_demo
+
+
 class Question(object):
     def __init__(self, question_id, content):
         self.question_id = question_id
         self.content = content
+
+    def __str__(self):
+        return f"question_id: {self.question_id}\ncontent: {self.content}"
 
 
 class Questions(object):
@@ -160,9 +166,33 @@ class Questions(object):
         if cur_question_id == 20 or cur_question_id == 21:
             return 22
         print(cur_question_id, 'not hit any branch, return default: -2')
-        return 22
+        return -1
+
+
+class SeqQuestions(object):
+    def __init__(self, question_txt_path='E:\\PycharmProjects\\ECNU\\src\\language\\questions2.txt'):
+        self.questions = []
+        with open(question_txt_path, 'rb') as f:
+            lines = f.readlines()
+            for idx, line in enumerate(lines):
+                self.questions.append(
+                    Question(idx, line.decode('utf-8'))
+                )
+
+    def get_next_question(self, cur_question_id, content):
+        next_question_id = cur_question_id + 1
+        if next_question_id >= len(self.questions):
+            return -1
+        return next_question_id
+
+    def generate_audio_data(self, txt):
+        binary_data, duration, ori_data = tts_http_demo.get_online_tts_service(txt, save_local=False, auto_play=False)
+        if binary_data is None:
+            return None, 0
+        return ori_data, duration
 
 
 if __name__ == '__main__':
-    print('as'.find('d'))
-    pass
+    questions = SeqQuestions()
+    for question in questions.questions:
+        print(question)

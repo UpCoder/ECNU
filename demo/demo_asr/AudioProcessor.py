@@ -5,9 +5,6 @@ import json
 import logging
 import time
 
-from src.commu.client import SocketClient
-from demo.demo_asr.realtime_demo_raw import AudioASRRecord
-from demo.demo_asr.realtime_if_stop import AudioStopRecord
 from demo.demo_asr.record_realtime import AudioRecorderProcessor
 from demo.demo_asr.utils import GlobalStatus, audio_receive_message
 
@@ -65,33 +62,8 @@ class AudioProcessor(object):
         self.audio_recorder_processor_object.start_realtime_recording_thread()
 
 
-
 def start_pipeline(recorder_queue: queue.Queue = None):
     global global_status
-    # sock = socket.socket()
-    # print('start bind')
-    # sock.bind((ip, port))
-    # print('listen')
-    # sock.listen(1)
-    # while True:
-    #     try:
-            # 接收来自服务器的数据
-            # conn, addr = sock.accept()
-            # global_status = GlobalStatus('localhost', 8889)
-            # audio_processor = AudioProcessor(
-            #     sample_rate=16000, asr_record_duration=5,
-            #     stop_record_duration=1, n_channels=2,
-            #     stop_interval=3, stop_threshold=3000,
-            #     global_status=global_status
-            # )
-            # print('receive after.')
-            # thread1 = threading.Thread(target=audio_receive_message, args=(global_status.send_msg_client.socket_client,
-            #                                                                audio_processor,
-            #                                                                global_status,))
-            # thread1.start()
-        # except Exception as e:
-        #     logging.exception(e)
-        #     break
     global_status = GlobalStatus('localhost', 8889)
     audio_processor = AudioProcessor(
         sample_rate=global_status.sample_rate,

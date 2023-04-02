@@ -14,6 +14,7 @@ import json
 from demo.demo_asr.zijie.release_interface import get_client
 from demo.demo_asr.utils import GlobalStatus
 from PyQt5.Qt import *
+from src.language.verbal import VerbalAnalyzer
 
 
 def merge_asr(cur_asr_result: str, last_asr_result: str):
@@ -99,6 +100,8 @@ class AudioRecorderProcessor:
         self.recorder_queue = recorder_queue
         self.qa_data = QAData()
 
+        self.verbal_analyzer = VerbalAnalyzer()
+
     def add_recorder_msg(self, data_dict: dict = None):
         """
         留存日志信息
@@ -118,7 +121,6 @@ class AudioRecorderProcessor:
         :param stop_duration_threshold_ms:
         :return:
         """
-        print('calc_metrics_stop_interval', record, np.max(record), np.min(record))
 
         cur_record = np.asarray(np.abs(record), np.int16)
         batch_size = self.RATE // 1000  # 代表每ms的数据量
@@ -131,7 +133,6 @@ class AudioRecorderProcessor:
                 is_stop.append(1)
             else:
                 is_stop.append(0)
-        print('is_stop length: ', len(is_stop))
         cur_count_stop = 0
         record_stop_durations_ms = []
         for cur_is_stop in is_stop:
@@ -144,7 +145,6 @@ class AudioRecorderProcessor:
             record_stop_durations_ms.append(cur_count_stop)
         record_stop_durations_ms = list(filter(lambda x: x > stop_duration_threshold_ms,
                                                record_stop_durations_ms))
-        print('record_stop_durations_ms: ', record_stop_durations_ms)
         return len(record_stop_durations_ms), record_stop_durations_ms
 
     def calc_metrics(self, default=False):
@@ -158,7 +158,6 @@ class AudioRecorderProcessor:
             # 计算响度
             data = [np.reshape(np.frombuffer(binary_value, dtype=np.int16), [-1, 2])
                     for binary_value in self.qa_data.frames_qa_format[-1]]
-            print(data)
             # data = [self.stop_records[-1]]
             loudness = []
             # 计算高音pitch
@@ -182,6 +181,10 @@ class AudioRecorderProcessor:
 
             # 计算音调变化
             speech_tone = ''
+
+            # verbal
+            verbal_metrics = self.verbal_analyzer.run(self.qa_data.current_merged_results[-1])
+
             metric_dict = {
                 'speech_tone': str(speech_tone),    # 音调变化
                 # 'speech_pause': str(speech_pause_count),  # 停顿次数
@@ -190,16 +193,18 @@ class AudioRecorderProcessor:
                 'speech_pitch': '{:.4f}'.format(speech_pitch),  # 高音pitch
                 'speech_length': '{:.4f}'.format(speech_length),    # 回答问题的时长
                 # 'speech_pause_duration': '{:.5f}'.format(np.sum(speech_pause_duration_ms))   # 停顿的总时长
+                **verbal_metrics
             }
         else:
+            verbal_metrics = self.verbal_analyzer.run('')
             metric_dict = {
                 'speech_tone': '',  # 音调变化
                 'speech_loudness': '',  # 平均响度
                 'speech_speed': '',
                 'speech_pitch': '',
-                'speech_length': ''
+                'speech_length': '',
+                **verbal_metrics
             }
-        print(f'metrics: {metric_dict}')
         return metric_dict
 
     def start_realtime_recording_thread(self):
@@ -216,25 +221,35 @@ class AudioRecorderProcessor:
                         input=True,
                         frames_per_buffer=self.CHUNK)
         while True:
-            if not self.global_status.asr_in_listen:
-                time.sleep(0.001)
-                continue
-            if self.global_status.is_stop:
-                time.sleep(0.001)
-                continue
+            self.global_status.is_stop_lock.acquire()
+            try:
+                # print(f'is_stop1: {self.global_status.is_stop} {id(self.global_status)}')
+                if not self.global_status.asr_in_listen:
+                    time.sleep(0.001)
+                    continue
+                if self.global_status.is_stop:
+                    time.sleep(0.001)
+                    continue
+            finally:
+                self.global_status.is_stop_lock.release()
             print('start record...')
             s = time.time()
             data = stream.read(self.CHUNK)
             e = time.time()
-            print(type(data), e - s)
             self._frames.append(data)
             self.qa_data.frames_qa_format[-1].append(data)
-            print(f'len qa_data.frames_qa_format: {len(self.qa_data.frames_qa_format[-1])}')
-            if self.is_stop(self.qa_data.frames_qa_format[-1]):
-                self.global_status.is_stop = True
-            else:
-                self.global_status.is_stop = False
-
+            self.global_status.is_stop_lock.acquire()
+            try:
+                if self.is_stop(self.qa_data.frames_qa_format[-1]):
+                    self.global_status.is_stop = True
+                else:
+                    # self.global_status.is_stop = False
+                    # 注释上面这行，避免覆盖receive endrecord
+                    pass
+            except Exception as e:
+                print(f'Record Is Stop Error {e}')
+            finally:
+                self.global_status.is_stop_lock.release()
     def start(self):
         threading._start_new_thread(self.__recording, ())
 
@@ -253,7 +268,6 @@ class AudioRecorderProcessor:
             s = time.time()
             data = stream.read(self.CHUNK)
             e = time.time()
-            print(type(data), e-s)
             self._frames.append(data)
             self.qa_data.frames_qa_format[-1].append(data)
         stream.stop_stream()
@@ -312,13 +326,11 @@ class AudioRecorderProcessor:
 
     def get_asr_result_core(self, frames=None):
         max_frames = self.max_asr_window // self.sec_per_chunk
-        print(f'max_frames: {max_frames}, {len(self._frames)}')
         if frames is None:
             binary_data = b''.join(self._frames[int(-1 * max_frames):])
         else:
             binary_data = b''.join(frames[int(-1 * max_frames):])
         arrive_limit = max_frames <= len(self._frames)
-        print(f'arrive_limit: {arrive_limit}')
         result = asyncio.run(self.asr_client.execute_raw(binary_data, self.channel,
                                                          self.bits, self.RATE))
         if result['payload_msg']['message'] == 'Success':
@@ -330,11 +342,9 @@ class AudioRecorderProcessor:
                 # 如果到达了限制，则需要和前一个ASR的结果进行合并
                 merged_asr_result = merge_asr(cur_asr_result, self.merged_asr_results[-1])
                 # self.merged_asr_results.append(merged_asr_result)
-            print(f'cur_asr_result: {cur_asr_result}')
             # print(f'merged asr result: {self.merged_asr_results[-1]}')
             return cur_asr_result, merged_asr_result
         else:
-            print(result)
             return '', ''
 
     def print_asr_loop(self):
@@ -350,12 +360,21 @@ class AudioRecorderProcessor:
 
     def get_asr_result_thread(self):
         while True:
-            if not self.global_status.asr_in_listen:
-                time.sleep(0.001)
-                continue
-            if self.qa_data.processed_chunk_idx >= len(self.qa_data.frames_qa_format[-1]):
-                time.sleep(0.001)
-                continue
+            self.global_status.is_stop_lock.acquire()
+            cur_loop_stop = None
+            try:
+                # print(f'asr result is stop 1: {self.global_status.is_stop} {id(self.global_status)}')
+                if not self.global_status.asr_in_listen:
+                    time.sleep(0.001)
+                    continue
+                if self.qa_data.processed_chunk_idx >= len(self.qa_data.frames_qa_format[-1]):
+                    time.sleep(0.001)
+                    continue
+                cur_loop_stop = self.global_status.is_stop
+            except Exception as e:
+                print(f'ASR result Error: {e}')
+            finally:
+                self.global_status.is_stop_lock.release()
             cur_asr_result, merged_asr_result = self.get_asr_result_core(self.qa_data.frames_qa_format[-1])
             self.qa_data.processed_chunk_idx += 1
             # print(f'cur_asr_result: {cur_asr_result}\nmerged_asr_result: {merged_asr_result}')
@@ -381,7 +400,8 @@ class AudioRecorderProcessor:
                         }
                     )
                 )
-            if self.global_status.is_stop:
+            # print(f'asr result is stop 2: {self.global_status.is_stop}')
+            if cur_loop_stop:
                 '''
                 判断停止了才会进行下述操作
                 1. 更新状态
@@ -397,20 +417,21 @@ class AudioRecorderProcessor:
                     self.global_status.current_question_id, self.qa_data.current_merged_results[-1])
 
                 self.global_status.current_question_id = next_question_id
-                # self.global_status.current_question_id += 1
-                self.global_status.send_msg_client.send_message(
-                    json.dumps(
-                        {
-                            'dialogue': '虚拟人：' + self.global_status.questions.questions[
-                                self.global_status.current_question_id].content,
-                            **self.calc_metrics(True)
-                        }
-                    )
-                )
+                if self.global_status.is_generated_audio_data:
+                    audio_data, audio_duration_s = self.global_status.questions.generate_audio_data(
+                        self.global_status.questions.questions[next_question_id].content)
+                else:
+                    audio_data = ''
+                    audio_duration_s = 0
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(
                     {
+                        'dialogue': '虚拟人：' + self.global_status.questions.questions[
+                            self.global_status.current_question_id].content,
                         "order": str(self.global_status.current_question_id),
+                        "have_audio_data": '1' if self.global_status.is_generated_audio_data else '0',
+                        'length': str(audio_duration_s),
+                        'data': audio_data,
                         **self.calc_metrics()
                     },
                 ))
@@ -438,8 +459,14 @@ class AudioRecorderProcessor:
                 self.qa_data.current_merged_results = []
                 self.qa_data.current_answer_results = []
                 self.qa_data.processed_chunk_idx = 0
-                self.global_status.asr_in_listen = False
-                self.global_status.is_stop = False
+                self.global_status.is_stop_lock.acquire()
+                try:
+                    self.global_status.asr_in_listen = False
+                    self.global_status.is_stop = False
+                except Exception as e:
+                    print(f'asr set stop: {self.global_status.is_stop}')
+                finally:
+                    self.global_status.is_stop_lock.release()
             continue
 
     def start_get_asr_result_thread(self):

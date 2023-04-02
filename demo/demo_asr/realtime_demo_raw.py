@@ -12,6 +12,7 @@ import numpy as np
 from demo.demo_asr.zijie.release_interface import get_client
 from src.commu.client import SocketClient
 from demo.demo_asr.utils import GlobalStatus
+from src.language.verbal import VerbalAnalyzer
 
 
 class Answer(object):
@@ -67,6 +68,7 @@ class AudioASRRecord(object):
         # self.cur_question_answer = ''
         # self.answer_seconds = []   # 记录历史问题回答的秒数
         # self.cur_seconds = 0    # 记录当前问题回答的秒数
+        self.verbal_analyzer = VerbalAnalyzer()
         if client is None:
             self.socket_client = self.global_status.send_msg_client
         else:
@@ -109,14 +111,11 @@ class AudioASRRecord(object):
             })
             self.process_idx += 1
             asr_result = self.get_asr_result(cur_record.tobytes())
-            print(f'asr_result: {asr_result}')
-            print(asr_result == '')
             self.asrs.append(asr_result)
             self.answers[-1].cur_answer += asr_result
             # self.cur_question_answer += asr_result
             # TODO send msg
             if asr_result != '':
-                # self.socket_client.send_asr_txt('被试：' + asr_result)
                 self.add_recorder_msg(
                     {
                         'asr': '被试：' + asr_result
@@ -130,47 +129,49 @@ class AudioASRRecord(object):
                         }
                     )
                 )
-                # self.global_status.send_msg_client.send_message(json.dumps(
-                #     {
-                #         "dialogue": str('被试：' + asr_result),
-                #         **self.calc_metrics()
-                #     },
-                # ))
             if self.global_status.is_stop:
                 # send next play audio
                 self.global_status.asr_in_listen = False
                 self.global_status.is_stop = False
                 # self.question_answers.append(self.cur_question_answer)
 
-                print('next quest')
+                logging.info('next quest')
                 next_question_id = self.global_status.questions.get_next_question(
                     self.global_status.current_question_id, self.answers[-1].cur_answer)
-                # self.cur_question_answer = ''
 
-                # self.answers[-1].cur_seconds.append(self.cur_seconds)
-                # self.cur_seconds = 0
+                if self.global_status.is_generated_audio_data:
+                    audio_data, audio_duration_s = self.global_status.questions.generate_audio_data(
+                        self.global_status.questions.questions[next_question_id].content)
+                else:
+                    audio_data = ''
+                    audio_duration_s = 0
 
                 self.global_status.current_question_id = next_question_id
                 # self.global_status.current_question_id += 1
                 self.answers.append(Answer())
-                self.global_status.send_msg_client.send_message(
-                    json.dumps(
-                        {
-                            'dialogue': '虚拟人：' + self.global_status.questions.questions[
-                                self.global_status.current_question_id].content,
-                            **self.calc_metrics(True)
-                        }
-                    )
-                )
-                # self.global_status.send_msg_client.send_asr_txt('虚拟人：' + self.global_status.questions.questions[
-                #     self.global_status.current_question_id].content)
+                # self.global_status.send_msg_client.send_message(
+                #     json.dumps(
+                #         {
+                #             'dialogue': '虚拟人：' + self.global_status.questions.questions[
+                #                 self.global_status.current_question_id].content,
+                #             **self.calc_metrics(True)
+                #         }
+                #     )
+                # )
                 time.sleep(0.1)
                 self.global_status.send_msg_client.send_message(json.dumps(
                     {
+                        'dialogue': '虚拟人：' + self.global_status.questions.questions[
+                            self.global_status.current_question_id].content,
                         "order": str(self.global_status.current_question_id),
+                        "have_audio_data": '1' if self.global_status.is_generated_audio_data else '0',
+                        'length': str(audio_duration_s),
+                        'data': audio_data,
                         **self.calc_metrics()
                     },
                 ))
+                print(f'send_message: {str(audio_duration_s)}',
+                      {"have_audio_data": '1' if self.global_status.is_generated_audio_data else '0'})
                 self.add_recorder_msg(
                     {
                         'asr': '虚拟人：' + self.global_status.questions.questions[
@@ -180,10 +181,6 @@ class AudioASRRecord(object):
                 self.add_recorder_msg({
                     **self.calc_metrics()
                 })
-                # time.sleep(0.1)
-                # self.global_status.send_msg_client.send_message(json.dumps(
-                #     self.calc_metrics()
-                # ))
             continue
 
     def calc_metrics_stop_interval(self, record, stop_duration_threshold_ms):
@@ -193,7 +190,6 @@ class AudioASRRecord(object):
         :param stop_duration_threshold_ms:
         :return:
         """
-        print('calc_metrics_stop_interval', record, np.max(record), np.min(record))
 
         cur_record = np.asarray(np.abs(record), np.int)
         batch_size = self.fs // 1000  # 代表每ms的数据量
@@ -206,7 +202,6 @@ class AudioASRRecord(object):
                 is_stop.append(1)
             else:
                 is_stop.append(0)
-        print('is_stop length: ', len(is_stop))
         cur_count_stop = 0
         record_stop_durations_ms = []
         for cur_is_stop in is_stop:
@@ -219,7 +214,6 @@ class AudioASRRecord(object):
             record_stop_durations_ms.append(cur_count_stop)
         record_stop_durations_ms = list(filter(lambda x: x > stop_duration_threshold_ms,
                                                record_stop_durations_ms))
-        print('record_stop_durations_ms: ', record_stop_durations_ms)
         return len(record_stop_durations_ms), record_stop_durations_ms
 
 
@@ -255,6 +249,10 @@ class AudioASRRecord(object):
 
             # 计算音调变化
             speech_tone = ''
+
+            # 文本特征
+            verbal_metrics = self.verbal_analyzer.run(self.answers[-2].cur_answer)
+
             metric_dict = {
                 'speech_tone': str(speech_tone),    # 音调变化
                 # 'speech_pause': str(speech_pause_count),  # 停顿次数
@@ -263,16 +261,20 @@ class AudioASRRecord(object):
                 'speech_pitch': '{:.4f}'.format(speech_pitch),  # 高音pitch
                 'speech_length': '{:.4f}'.format(speech_length),    # 回答问题的时长
                 # 'speech_pause_duration': '{:.5f}'.format(np.sum(speech_pause_duration_ms))   # 停顿的总时长
+                **verbal_metrics
             }
+
         else:
+            verbal_metrics = self.verbal_analyzer.run('')
             metric_dict = {
                 'speech_tone': '',  # 音调变化
                 'speech_loudness': '',  # 平均响度
                 'speech_speed': '',
                 'speech_pitch': '',
-                'speech_length': ''
+                'speech_length': '',
+                **verbal_metrics
             }
-        print(f'metrics: {metric_dict}')
+
         return metric_dict
 
 
@@ -280,7 +282,6 @@ class AudioASRRecord(object):
     def get_asr_result(self, record_bytes):
         result = asyncio.run(self.asr_client.execute_raw(record_bytes, self.channel,
                                                          self.bits, self.fs))
-        print(f'result: {result}')
         if result['payload_msg']['message'] == 'Success':
             return result['payload_msg']['result'][0]['text']
         return ''
@@ -300,7 +301,6 @@ class AudioASRRecord(object):
             if self.global_status.is_stop:
                 time.sleep(0.001)
                 continue
-            print('start record...')
             myrecording = sd.rec(int(self.seconds * self.fs), samplerate=self.fs,
                                  channels=self.channel, dtype=np.int16)
             sd.wait()
@@ -308,13 +308,11 @@ class AudioASRRecord(object):
             min_record = np.min(myrecording)
             # self.cur_seconds += self.seconds
             self.answers[-1].cur_seconds += self.seconds
-            print(f'end rec max_record: {type(myrecording)} {np.shape(myrecording)} {max_record} {min_record}')
             self.stop_records.append({
                 'record': myrecording,
                 'max': max_record,
                 'min': min_record
             })
-            print('finish record...')
             # wave_binrary = myrecording.tobytes()
             self.records.append(myrecording)
             if self.is_stop():

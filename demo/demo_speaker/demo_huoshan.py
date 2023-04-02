@@ -10,7 +10,8 @@ s = requests
 appid = '6747655566'
 token = 'M_3Swzuc6aTtP90HE6VHQ58NmBdF_6Rl'
 cluster = 'volc_auc_common'
-audio_url = 'https://fastupload.io/download/gXeGOJRWPzAa7/cL22xDLMpRxOrXp/cy.wav'
+# audio_url = 'https://bigfive.tos-cn-beijing.volces.com/23-04-thy.wav?response-content-type=application%2Foctet-stream'
+audio_url = 'https://bigfive.tos-cn-beijing.volces.com/lcy.wav'
 service_url = 'https://openspeech.bytedance.com/api/v1/auc'
 
 headers = {'Authorization': 'Bearer; {}'.format(token)}
@@ -31,7 +32,7 @@ def submit_task():
             "url": audio_url
         },
         "additions": {
-            'with_speaker_info': 'False',
+            'with_speaker_info': 'True',
         }
     }
 

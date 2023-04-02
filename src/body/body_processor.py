@@ -1,10 +1,10 @@
+from typing import List
 import queue
 import threading
 
 import cv2
 import time
 import numpy as np
-from tqdm import tqdm
 
 from src.body.handler_hand import processing_frame as processing_hand_frame
 from src.body.handler_pose import processing_frame as processing_pose_frame
@@ -234,13 +234,29 @@ class BodyInfoSingle(object):
 class BodyInfo(object):
     def __init__(self, key_point_names, window_size=5):
         self.coords = []
-        self.body_info = []
-        self.body_info_window_avg = [BodyInfoSingle()]
+        self.body_info = [] # 原始结果
+        self.body_info_window_avg = [BodyInfoSingle()]  # 窗口平滑后的结果，指定window_size规模的frame合并成一个frame的结果，并记录。后续指标是基于该项进行
         self.key_point_names = key_point_names
         self.body_swing_count = 0   # 身体摆动次数
         self.left_arm_swing_count = 0   # 左胳膊摆动次数
         self.right_arm_swing_count = 0  # 右胳膊摆动次数
         self.window_size = window_size
+
+        # init calc metrics
+        self.last_result = None # 上次计算的结果
+        self.handler_body_info_idx = -1
+        self.body_left_right = []  # 身体向左移动还是向右移动
+        self.body_distances = []  # 身体移动的距离
+        self.left_arm_left_right = []  # 左胳膊向左移动还是向右移动
+
+        self.left_arm_distance = []  # 左胳膊移动的距离
+        self.right_arm_left_right = []  # 右胳膊向左移动还是向右移动
+        self.right_arm_distance = []  # 右胳膊移动的距离
+        self.body_width_avg = []
+
+        self.count_body_swing = 0
+        self.count_left_arm_swing = 0
+        self.count_right_arm_swing = 0
 
     def add_info(self, coord_info):
         self.coords.append(coord_info)
@@ -265,7 +281,104 @@ class BodyInfo(object):
                 distance_merge.append(distance)
         return left_right_merge, distance_merge
 
+    def continuous_add(self, directions: List, distances: List, direction: int, distance: float, threshold: float,
+                       count_val: int) -> int:
+        if len(directions) == 0:
+            directions.append(direction)
+            distances.append(distance)
+            return count_val
+        if directions[-1] == direction:
+            distances[-1] += distance
+            return count_val
+        # 出现新方向
+        directions.append(direction)
+        distances.append(distance)
+        if len(directions) >= 3 and len(directions) % 2 == 1:
+            move_distance = max(distances[-2], distances[-3])
+            if move_distance >= threshold:
+                count_val += 1
+        return count_val
+
     def calc_metrics(self):
+        # 如果在
+        if len(self.body_info_window_avg) < 2:
+            return {
+                'body_swing': str(0),
+                'body_arm_swing': str(0),
+                'body_tension': '{:.5f}'.format(0.),
+                'body_distance': '{:.5f}'.format(0)
+            }
+        if len(self.body_info_window_avg) - 1 == self.handler_body_info_idx:
+            return self.last_result
+        axis_name = 'x'
+        # last_info = self.body_info_window_avg[self.handler_body_info_idx]
+        # self.body_width_avg.append(abs(last_info.left_shoulder_coord[axis_name] -
+        #                                last_info.right_shoulder_coord[axis_name]))
+        if self.handler_body_info_idx == -1:
+            self.handler_body_info_idx = 1
+            self.last_result = {
+                'body_swing': str(0),
+                'body_arm_swing': str(0),
+                'body_tension': '{:.5f}'.format(0.),
+                'body_distance': '{:.5f}'.format(0)
+            }
+            return self.last_result
+        last_info = self.body_info_window_avg[self.handler_body_info_idx-1]
+        threshold_windows = 10
+        body_swing_threshold = np.mean(self.body_width_avg[-threshold_windows:]) * 0.1
+        left_arm_swing_threshold = np.mean(self.body_width_avg[-threshold_windows:]) * 0.05
+        right_arm_swing_threshold = np.mean(self.body_width_avg[-threshold_windows:]) * 0.05
+        # 遍历所有的记录格式
+        for cur_body_info in self.body_info_window_avg[self.handler_body_info_idx:]:
+            self.body_width_avg.append(abs(cur_body_info.left_shoulder_coord[axis_name] -
+                                           cur_body_info.right_shoulder_coord[axis_name]))
+            if cur_body_info.body_coord[axis_name] > last_info.body_coord[axis_name]:
+                self.count_body_swing = self.continuous_add(self.body_left_right, self.body_distances, 1,
+                                                            abs(cur_body_info.body_coord[axis_name] -
+                                                                last_info.body_coord[axis_name]),
+                                                            body_swing_threshold, self.count_body_swing)
+            else:
+                self.count_body_swing = self.continuous_add(self.body_left_right, self.body_distances, 0,
+                                                            abs(cur_body_info.body_coord[axis_name] -
+                                                                last_info.body_coord[axis_name]),
+                                                            body_swing_threshold, self.count_body_swing)
+
+
+            if cur_body_info.left_arm_coord[axis_name] > last_info.left_arm_coord[axis_name]:
+                self.count_left_arm_swing = self.continuous_add(self.left_arm_left_right, self.left_arm_distance, 1,
+                                                            abs(cur_body_info.left_arm_coord[axis_name] -
+                                                                last_info.left_arm_coord[axis_name]),
+                                                            left_arm_swing_threshold, self.count_left_arm_swing)
+            else:
+                self.count_left_arm_swing = self.continuous_add(self.left_arm_left_right, self.left_arm_distance, 0,
+                                                                abs(cur_body_info.left_arm_coord[axis_name] -
+                                                                    last_info.left_arm_coord[axis_name]),
+                                                                left_arm_swing_threshold, self.count_left_arm_swing)
+
+
+            if cur_body_info.right_arm_coord[axis_name] > last_info.right_arm_coord[axis_name]:
+                self.count_right_arm_swing = self.continuous_add(self.right_arm_left_right, self.right_arm_distance, 1,
+                                                                 abs(cur_body_info.right_arm_coord[axis_name] -
+                                                                     last_info.right_arm_coord[axis_name]),
+                                                                 right_arm_swing_threshold, self.count_right_arm_swing)
+            else:
+                self.count_right_arm_swing = self.continuous_add(self.right_arm_left_right, self.right_arm_distance, 0,
+                                                                 abs(cur_body_info.right_arm_coord[axis_name] -
+                                                                     last_info.right_arm_coord[axis_name]),
+                                                                 right_arm_swing_threshold, self.count_right_arm_swing)
+            last_info = cur_body_info
+        self.handler_body_info_idx = len(self.body_info_window_avg)
+        cur_result = {
+            'body_swing': str(self.body_swing_count),
+            'body_arm_swing': str(self.count_left_arm_swing + self.count_right_arm_swing),
+            'body_tension': '{:.5f}'.format(0.),
+            'body_distance': '{:.5f}'.format(np.sum(self.body_distances))
+        }
+        self.last_result = cur_result
+        return cur_result
+
+    def calc_metrics_scratch(self):
+        # 如果在
         if len(self.body_info_window_avg) < 2:
             return {
                 'body_swing': str(0),
@@ -420,7 +533,7 @@ class BodyProcessor(object):
         self.cur_body_info = self.handler_body_info_by_keypoints(cur_body_coords)
         self.body_infos.append(self.cur_body_info)
         self.body_last_move = handler_move(self.body_infos, self.window_size, self.body_last_move)
-        return annotation_image, self.body_last_move, self.body_infos_obj.calc_metrics()
+        return annotation_image, self.body_last_move, self.body_infos_obj.calc_metrics(), cur_body_coords
 
     def handler_body_info_by_keypoints(self, coord_infos):
         if coord_infos is None:
@@ -495,6 +608,7 @@ class VideoProcessor(object):
             self.processing_frame_thread.join()
 
     def processing_frame(self, frame_image, annotation_image, need_info=False):
+        body_hand_start_time = time.time()
         if self.count_idx % self.calc_frame_interval == 0:
             refuse = False
         else:
@@ -504,14 +618,18 @@ class VideoProcessor(object):
         if annotation_image is None:
             annotation_image = frame_image.copy()
 
-        annotation_image, (body_lr_str, body_ud_str, body_fb_str), body_info_metrics = self.body_processor.process(
+        start_time = time.time()
+        annotation_image, (body_lr_str, body_ud_str, body_fb_str), body_info_metrics, cur_body_coords = self.body_processor.process(
             frame_image,
             annotation_image,
             refuse=refuse)
+        print(f'body frame cost time: {time.time() - start_time}')
+        start_time = time.time()
         annotation_image, (lh_lr_str, lh_ud_str, lh_fb_str), \
         (rh_lr_str, rh_ud_str, rh_fb_str) = self.hand_processor.process(frame=frame_image,
                                                                         annotation_image=np.asarray(annotation_image),
                                                                         refuse=refuse)
+        print(f'hand frame cost time: {time.time() - start_time}')
         annotation_image_txt = annotation_image.copy()
         print_lines = [
             f'Body Left/Right: {body_lr_str}',
@@ -539,11 +657,13 @@ class VideoProcessor(object):
         self.processing_frame_result = {
             'annotation_image': annotation_image,
             'annotation_image_txt': annotation_image_txt,
-            'metrics': body_hand_metrics
+            'metrics': body_hand_metrics,
+            'body_coords': cur_body_coords
         }
         # self.add_recorder_msg(
         #     body_hand_metrics
         # )
+        print(f'body hand all cost time: {time.time() - body_hand_start_time}')
         return annotation_image, annotation_image_txt, body_hand_metrics
 
     def put_txts(self, frame, txts, start_loc, line_width, font=cv2.FONT_HERSHEY_SIMPLEX):
@@ -556,7 +676,7 @@ class VideoProcessor(object):
     def processing_frames(self, frames):
         annotation_frames = []
         annotation_frames_txt = []
-        for frame in tqdm(frames):
+        for frame in frames:
             frame_res = self.processing_frame(frame, None)
             annotation_frames.append(frame_res[0])
             annotation_frames_txt.append(frame_res[1])

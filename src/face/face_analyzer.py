@@ -186,6 +186,7 @@ class FaceAnalyzer(object):
 
     def face_infer(self):
         try:
+            face_start_time = time.time()
             self.count_idx += 1
             start_time = time.time()
             raw_image = self.image
@@ -272,6 +273,7 @@ class FaceAnalyzer(object):
             # self.draw_face(draw_image)
             # image = cv2.flip(image, 1)
             # print('mesh_time:', time.time() - start_time)
+            print(f'face all cost: {time.time() - face_start_time}')
         except Exception as e:
             print('Error:', str(e))
             return

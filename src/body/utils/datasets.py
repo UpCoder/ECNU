@@ -18,7 +18,6 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ExifTags
 from torch.utils.data import Dataset
-from tqdm import tqdm
 
 import pickle
 from copy import deepcopy
@@ -455,7 +454,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             gb = 0  # Gigabytes of cached images
             self.img_hw0, self.img_hw = [None] * n, [None] * n
             results = ThreadPool(8).imap(lambda x: load_image(*x), zip(repeat(self), range(n)))
-            pbar = tqdm(enumerate(results), total=n)
+            pbar = enumerate(results)
             for i, x in pbar:
                 if cache_images == 'disk':
                     if not self.img_npy[i].exists():
@@ -471,7 +470,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         # Cache dataset labels, check images and read shapes
         x = {}  # dict
         nm, nf, ne, nc = 0, 0, 0, 0  # number missing, found, empty, duplicate
-        pbar = tqdm(zip(self.img_files, self.label_files), desc='Scanning images', total=len(self.img_files))
+        # pbar = tqdm(zip(self.img_files, self.label_files), desc='Scanning images', total=len(self.img_files))
+        pbar = zip(self.img_files, self.label_files)
         for i, (im_file, lb_file) in enumerate(pbar):
             try:
                 # verify images
@@ -1251,7 +1251,8 @@ def flatten_recursive(path='../coco'):
     # Flatten a recursive directory by bringing all files to top level
     new_path = Path(path + '_flat')
     create_folder(new_path)
-    for file in tqdm(glob.glob(str(Path(path)) + '/**/*.*', recursive=True)):
+    for file in glob.glob(str(Path(path)) + '/**/*.*', recursive=True):
+        # for file in tqdm(glob.glob(str(Path(path)) + '/**/*.*', recursive=True)):
         shutil.copyfile(file, new_path / Path(file).name)
 
 
@@ -1262,7 +1263,8 @@ def extract_boxes(path='../coco/'):  # from utils.datasets import *; extract_box
     shutil.rmtree(path / 'classifier') if (path / 'classifier').is_dir() else None  # remove existing
     files = list(path.rglob('*.*'))
     n = len(files)  # number of files
-    for im_file in tqdm(files, total=n):
+    for im_file in files:
+    # for im_file in tqdm(files, total=n):
         if im_file.suffix[1:] in img_formats:
             # image
             im = cv2.imread(str(im_file))[..., ::-1]  # BGR to RGB
@@ -1307,7 +1309,8 @@ def autosplit(path='../coco', weights=(0.9, 0.1, 0.0), annotated_only=False):
     [(path / x).unlink() for x in txt if (path / x).exists()]  # remove existing
 
     print(f'Autosplitting images from {path}' + ', using *.txt labeled images only' * annotated_only)
-    for i, img in tqdm(zip(indices, files), total=n):
+    for i, img in zip(indices, files):
+        # for i, img in tqdm(zip(indices, files), total=n):
         if not annotated_only or Path(img2label_paths([str(img)])[0]).exists():  # check label
             with open(path / txt[i], 'a') as f:
                 f.write(str(img) + '\n')  # add image to txt file

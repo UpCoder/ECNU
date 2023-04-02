@@ -31,7 +31,7 @@ class Recorder(object):
                         text_log = self.q1.get()
                         if text_log is None:
                             return
-                        print('record:', type(text_log))
+                        # print('record:', type(text_log))
                         if type(text_log) == str:
                             f.write(text_log+'\n')
                         elif type(text_log) == dict:

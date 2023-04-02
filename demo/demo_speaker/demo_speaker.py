@@ -8,6 +8,7 @@ import numpy as np
 from pydub import AudioSegment
 from demo.demo_asr.zijie.release_interface import get_client
 from vosk import Model, KaldiRecognizer, SpkModel
+from src.language.verbal import VerbalAnalyzer
 
 SPK_MODEL_PATH = "model-spk"
 print(os.path.abspath(SPK_MODEL_PATH))
@@ -17,6 +18,8 @@ if not os.path.exists(SPK_MODEL_PATH):
         "in the current folder.")
     sys.exit(1)
 
+
+verbal_analyzer = VerbalAnalyzer()
 
 
 
@@ -191,16 +194,18 @@ def calc_metrics(duration, binary_data, asr_result, rate):
         'speech_speed': '{:.4f}'.format(speech_speed),  # 语速
         'speech_pitch': '{:.4f}'.format(speech_pitch),  # 高音pitch
         'speech_length': '{:.4f}'.format(speech_length),  # 回答问题的时长
+        **verbal_analyzer.run(asr_result)
         # 'speech_pause_duration': '{:.5f}'.format(np.sum(speech_pause_duration_ms))   # 停顿的总时长
     }
     return metric_dict
 
 
-def handler_sentence2asr(txt_path, wav_path):
+def handler_sentence2asr(txt_path, wav_path, reasr=True, format=' '):
     """
     it dependency output of handler_wav2sentence
+    :paras reasr: 是否重新进行ASR
     """
-
+    step_size = 25
     def __handler_asr_core(asr_client, cut_data, sound, wf, start_sec, end_sec, max_window_size=30, step_size=3):
         if end_sec - start_sec < max_window_size:
             result = asyncio.run(asr_client.execute_raw(cut_data, wf.getnchannels(), 16, wf.getframerate()))
@@ -260,14 +265,28 @@ def handler_sentence2asr(txt_path, wav_path):
     last_end_idx = 0
     last_speaker_idx = 0
     last_data = None
+    last_asr_results = []
     for record in records:
         try:
-            print(record)
-            single_data = record.split(' ')
-            frame_idxs = single_data[1]
-            speaker_idxs = single_data[0]
+            if format == ' ':
+                single_data = record.split(' ')
+                frame_idxs = single_data[1]
+                speaker_idxs = single_data[0]
+                cur_start_idx, cur_end_idx = frame_idxs.split('-')
+                cur_start_idx = int(cur_start_idx)
+                cur_end_idx = int(cur_end_idx)
+            elif format == 'json':
+                single_data = json.loads(record)
+                speaker_idxs = single_data['spk_id']
+                start_sec = single_data['start_sec']
+                end_sec = single_data['end_sec']
+                cur_end_idx = end_sec / 1000 * wf.getframerate()
+                cur_start_idx = start_sec / 1000 * wf.getframerate()
+                last_asr_results.append(single_data['asr_txt'])
+            else:
+                raise ValueError(f'format={format} do not support')
+
             last_speaker_idx = speaker_idxs
-            cur_start_idx, cur_end_idx = frame_idxs.split('-')
             last_end_idx = cur_end_idx
             if last_speaker is None:
                 last_speaker = speaker_idxs
@@ -275,17 +294,22 @@ def handler_sentence2asr(txt_path, wav_path):
                 last_data = single_data
                 continue
             last_speaker = speaker_idxs
-            start_sec = int(start_idx) / wf.getframerate()
-            end_sec = int(cur_start_idx) / wf.getframerate()
+            start_sec = start_idx / wf.getframerate()
+            end_sec = cur_start_idx / wf.getframerate()
             cut_wav = sound[start_sec * 1000: end_sec * 1000]  # 以毫秒为单位截取[begin, end]区间的音频
             cut_data = cut_wav.raw_data
-            cur_asr_result = __handler_asr_core(
-                asr_client, cut_data, sound, wf, start_sec, end_sec
-            )
+            if not reasr:
+                cur_asr_result = ''.join(last_asr_results[:-1])
+                last_asr_results = [last_asr_results[-1]]
+            else:
+                cur_asr_result = __handler_asr_core(
+                    asr_client, cut_data, sound, wf, start_sec, end_sec,
+                    step_size=step_size
+                )
 
             cur_metrics = calc_metrics(end_sec - start_sec, cut_data, cur_asr_result, wf.getframerate())
             new_asr_records.append(json.dumps({
-                'spk_id': int(last_data[0][0]),
+                'spk_id': int(last_data[0][0]) if format == ' ' else last_data['spk_id'],
                 'start_sec': start_sec,
                 'end_sec': end_sec,
                 'asr_txt': cur_asr_result,
@@ -304,7 +328,8 @@ def handler_sentence2asr(txt_path, wav_path):
         cut_wav = sound[start_sec * 1000: end_sec * 1000]  # 以毫秒为单位截取[begin, end]区间的音频
         cut_data = cut_wav.raw_data
         cur_asr_result = __handler_asr_core(
-            asr_client, cut_data, sound, wf, start_sec, end_sec
+            asr_client, cut_data, sound, wf, start_sec, end_sec,
+            step_size=step_size
         )
         cur_metrics = calc_metrics(end_sec - start_sec, cut_data, cur_asr_result, wf.getframerate())
         new_asr_records.append(json.dumps({
@@ -321,8 +346,10 @@ def handler_sentence2asr(txt_path, wav_path):
         logging.exception(e)
 
 
-
 if __name__ == '__main__':
-    file_name = './lcy.wav'
-    txt_path = handler_wav2sentence(file_name)
-    handler_sentence2asr(txt_path, file_name)
+    # file_name = './lcy.wav'
+    # txt_path = handler_wav2sentence(file_name)
+    # handler_sentence2asr(txt_path, file_name)
+
+    txt_path = 'E:\\videos0328\\txt\\23-04-thy.txt'
+    handler_sentence2asr(txt_path, 'E:\\videos0328\\23-04-thy.wav', False, 'json')
